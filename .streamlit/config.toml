@@ -1,0 +1,7 @@
+[server]
+# The watcher walks every lazily-imported transformers submodule: slow and noisy.
+fileWatcherType = "none"
+headless = true
+
+[browser]
+gatherUsageStats = false

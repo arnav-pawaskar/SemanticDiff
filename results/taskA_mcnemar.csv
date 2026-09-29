@@ -1,0 +1,5 @@
+comparison,p_value
+semanticdiff vs lexical,5.115907697472721e-12
+semanticdiff vs tfidf,7.431700815906108e-26
+semanticdiff vs embedding,1.582067810090848e-15
+semanticdiff vs embed+nli,2.3283064365386963e-10

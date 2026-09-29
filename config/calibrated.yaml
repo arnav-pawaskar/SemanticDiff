@@ -1,0 +1,7 @@
+# written by eval/calibrate.py and eval/run_align_eval.py (dev split only)
+align:
+  threshold: 0.55
+verdict:
+  contradiction: 0.9
+  entail: 0.6
+  preserve_similarity: 0.88

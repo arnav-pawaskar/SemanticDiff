@@ -1,0 +1,148 @@
+# Golden acceptance cases taken from the project specification.
+#
+# expect:  list of "CATEGORY/SUBTYPE" atomic changes that must be detected
+# exact:   if true, no other atomic changes may be reported
+# verdict / textual_level / semantic_level: optional pair-level expectations
+
+- id: killer_obligation_and_threshold
+  v1: All students must maintain 75% attendance.
+  v2: All students should maintain 70% attendance.
+  expect: [MODALITY/WEAKENED, NUMERIC/DECREASED]
+  exact: true
+  verdict: MATERIAL
+  semantic_level: HIGH
+
+- id: killer_negation
+  v1: Students with medical exemptions may appear for examinations.
+  v2: Students with medical exemptions may not appear for examinations.
+  expect: [NEGATION/INTRODUCED]
+  exact: true
+  verdict: MATERIAL
+  textual_level: LOW
+  semantic_level: HIGH
+
+- id: sla_meaning_preserving
+  v1: The server must respond within 500 milliseconds.
+  v2: The server shall return a response within half a second.
+  expect: []
+  exact: true
+  verdict: MEANING_PRESERVING
+  semantic_level: LOW
+
+- id: seven_days_one_week
+  v1: Applications shall be submitted within seven days.
+  v2: Applicants are required to submit their applications within one week.
+  expect: []
+  exact: true
+  verdict: MEANING_PRESERVING
+  textual_level: HIGH
+  semantic_level: LOW
+
+- id: lab_negation
+  v1: Students may access the laboratory.
+  v2: Students may not access the laboratory.
+  expect: [NEGATION/INTRODUCED]
+  exact: true
+  textual_level: LOW
+  semantic_level: HIGH
+
+- id: four_mutations
+  v1: All students may submit applications within 30 days.
+  v2: Final-year students must submit applications within 15 days with faculty approval.
+  expect: [SCOPE/NARROWED, MODALITY/STRENGTHENED, TEMPORAL/DECREASED, CONDITION/ADDED]
+  exact: true
+  verdict: MATERIAL
+
+- id: interest_rate
+  v1: The interest rate is 5%.
+  v2: The interest rate is 15%.
+  expect: [NUMERIC/INCREASED]
+  exact: true
+  semantic_level: HIGH
+
+- id: reimbursement_condition
+  v1: Employees receive reimbursement.
+  v2: Employees receive reimbursement if approved by their manager.
+  expect: [CONDITION/ADDED]
+  exact: true
+  semantic_level: HIGH
+
+- id: scope_narrowed
+  v1: All students may apply.
+  v2: Final-year students may apply.
+  expect: [SCOPE/NARROWED]
+  exact: true
+
+- id: scope_broadened
+  v1: Final-year students may apply for the internship.
+  v2: All students may apply for the internship.
+  expect: [SCOPE/BROADENED]
+  exact: true
+
+- id: lexical_reversal
+  v1: Visitors are allowed to use the library.
+  v2: Visitors are prohibited from using the library.
+  expect: [REVERSAL/PERMISSION->PROHIBITION]
+  exact: true
+  semantic_level: HIGH
+
+- id: obligation_to_prohibition
+  v1: Employees must disclose conflicts of interest.
+  v2: Employees must not disclose conflicts of interest.
+  expect: [NEGATION/INTRODUCED]
+  exact: true
+
+- id: entity_replaced
+  v1: Applications must be sent to the Registrar of Mumbai University.
+  v2: Applications must be sent to the Registrar of Pune University.
+  expect: [ENTITY/REPLACED]
+  exact: true
+
+- id: date_changed
+  v1: The revised policy takes effect on 1 January 2025.
+  v2: The revised policy takes effect on 1 March 2025.
+  expect: [TEMPORAL/CHANGED]
+  exact: true
+
+- id: condition_removed_owns_its_quantity
+  v1: Refunds are issued if the request is made within 14 days.
+  v2: Refunds are issued.
+  expect: [CONDITION/REMOVED]
+  exact: true
+
+- id: number_inside_condition
+  v1: Students may appear for examinations if their attendance is at least 75%.
+  v2: Students may appear for examinations if their attendance is at least 85%.
+  expect: [NUMERIC/INCREASED]
+  exact: true
+
+- id: comparator_changed
+  v1: Candidates must score at least 60% in the qualifying examination.
+  v2: Candidates must score more than 60% in the qualifying examination.
+  expect: [NUMERIC/COMPARATOR_CHANGED]
+  exact: true
+
+- id: currency_increase
+  v1: The hostel fee is Rs. 5,000 per semester.
+  v2: The hostel fee is Rs. 7,500 per semester.
+  expect: [NUMERIC/INCREASED]
+  exact: true
+
+- id: condition_unless_added
+  v1: Late submissions will be rejected.
+  v2: Late submissions will be rejected unless the student has a medical certificate.
+  expect: [CONDITION/ADDED]
+  exact: true
+
+- id: working_days_not_days
+  v1: Complaints must be resolved within 10 days.
+  v2: Complaints must be resolved within 10 working days.
+  expect: [TEMPORAL/UNIT_CHANGED]
+  exact: true
+
+- id: identical
+  v1: The library remains open until 10 PM on weekdays.
+  v2: The library remains open until 10 PM on weekdays.
+  expect: []
+  exact: true
+  verdict: IDENTICAL

@@ -1,0 +1,49 @@
+# SemanticDiff severity heuristic.
+#
+# This is NOT an objective or universal notion of importance. It is the explicit,
+# configurable policy SemanticDiff uses to rank changes. Every change records the
+# id of the rule that assigned its severity (e.g. "category:NEGATION",
+# "numeric:relative>=0.1"), so the UI can always explain why something is HIGH.
+
+category_defaults:
+  NEGATION: HIGH
+  REVERSAL: HIGH
+  MODALITY: HIGH
+  CONDITION: HIGH
+  NUMERIC: MEDIUM
+  TEMPORAL: MEDIUM
+  SCOPE: MEDIUM
+  ENTITY: MEDIUM
+  UNEXPLAINED: MEDIUM
+  STRUCTURE: MEDIUM
+
+subtype_overrides:
+  MODALITY:
+    # moving between two non-binding strengths is less severe
+    RECOMMENDATION->PERMISSION: MEDIUM
+    PERMISSION->RECOMMENDATION: MEDIUM
+    NONE->RECOMMENDATION: MEDIUM
+    RECOMMENDATION->NONE: MEDIUM
+  STRUCTURE:
+    MOVED: LOW
+  SCOPE:
+    NARROWED: HIGH
+    BROADENED: HIGH
+  CONDITION:
+    MODIFIED: MEDIUM
+
+numeric:
+  high_relative_change: 0.10   # |new - old| / |old| at or above this => HIGH
+  high_percent_points: 1.0     # a percentage moving by >= 1 point => HIGH (75% -> 70%)
+  threshold_is_high: true      # any change to a value with a comparator ("at least", "below") => HIGH
+  comparator_change: HIGH      # "at least" -> "more than" etc.
+
+temporal:
+  high_relative_change: 0.10
+  threshold_is_high: true
+  date_change: HIGH
+
+structure:
+  normative_escalates: true    # an added/removed provision that states an obligation/prohibition/permission => HIGH
+
+escalate_in_definition: true   # any change inside a definition provision goes up one level

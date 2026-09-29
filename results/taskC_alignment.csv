@@ -1,0 +1,5 @@
+system,link_P,link_R,link_F1,move_P,move_R,move_F1
+positional (i ↔ i),0.3654485049833887,0.39855072463768115,0.3812824956672444,0.0,0.0,0.0
+difflib line diff,0.9115384615384615,0.8586956521739131,0.8843283582089553,0.0,0.0,0.0
+SemanticDiff (token overlap only),1.0,1.0,1.0,1.0,1.0,1.0
+SemanticDiff (embedding + token),1.0,0.9963768115942029,0.9981851179673321,1.0,1.0,1.0

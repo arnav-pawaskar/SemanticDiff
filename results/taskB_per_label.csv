@@ -1,0 +1,33 @@
+split,system,category,precision,recall,f1,support
+test,keyword-diff,NUMERIC,0.8888888888888888,0.7619047619047619,0.8205128205128205,21
+test,keyword-diff,TEMPORAL,0.4117647058823529,0.9545454545454546,0.5753424657534246,22
+test,keyword-diff,ENTITY,0.3333333333333333,1.0,0.5,9
+test,keyword-diff,MODALITY,0.5116279069767442,1.0,0.676923076923077,22
+test,keyword-diff,NEGATION,1.0,1.0,1.0,30
+test,keyword-diff,SCOPE,0.2894736842105263,1.0,0.4489795918367347,22
+test,keyword-diff,CONDITION,0.36764705882352944,1.0,0.5376344086021505,25
+test,keyword-diff,REVERSAL,1.0,0.8,0.8888888888888888,20
+test,semanticdiff,NUMERIC,1.0,1.0,1.0,21
+test,semanticdiff,TEMPORAL,1.0,1.0,1.0,22
+test,semanticdiff,ENTITY,1.0,1.0,1.0,9
+test,semanticdiff,MODALITY,1.0,1.0,1.0,22
+test,semanticdiff,NEGATION,1.0,1.0,1.0,30
+test,semanticdiff,SCOPE,1.0,1.0,1.0,22
+test,semanticdiff,CONDITION,1.0,1.0,1.0,25
+test,semanticdiff,REVERSAL,1.0,0.9,0.9473684210526315,20
+test,semanticdiff −NLI,NUMERIC,1.0,1.0,1.0,21
+test,semanticdiff −NLI,TEMPORAL,1.0,1.0,1.0,22
+test,semanticdiff −NLI,ENTITY,1.0,1.0,1.0,9
+test,semanticdiff −NLI,MODALITY,1.0,1.0,1.0,22
+test,semanticdiff −NLI,NEGATION,1.0,1.0,1.0,30
+test,semanticdiff −NLI,SCOPE,1.0,1.0,1.0,22
+test,semanticdiff −NLI,CONDITION,1.0,1.0,1.0,25
+test,semanticdiff −NLI,REVERSAL,1.0,0.6,0.75,20
+test,semanticdiff −unit-norm,NUMERIC,1.0,1.0,1.0,21
+test,semanticdiff −unit-norm,TEMPORAL,0.7857142857142857,1.0,0.88,22
+test,semanticdiff −unit-norm,ENTITY,1.0,1.0,1.0,9
+test,semanticdiff −unit-norm,MODALITY,1.0,1.0,1.0,22
+test,semanticdiff −unit-norm,NEGATION,1.0,1.0,1.0,30
+test,semanticdiff −unit-norm,SCOPE,1.0,1.0,1.0,22
+test,semanticdiff −unit-norm,CONDITION,1.0,1.0,1.0,25
+test,semanticdiff −unit-norm,REVERSAL,1.0,0.9,0.9473684210526315,20

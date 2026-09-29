@@ -1,0 +1,18 @@
+SERVICE LEVEL AGREEMENT
+
+1. Availability
+1.1 The service shall be available 99.5% of the time in each calendar month.
+1.2 Scheduled maintenance must not exceed 240 minutes per month.
+
+2. Performance
+2.1 The server shall return a response within half a second.
+2.2 The provider shall notify the customer of any outage within 60 minutes.
+2.3 Support tickets should be acknowledged within 48 hours.
+
+3. Service Credits
+3.1 The customer is entitled to a service credit of 10% of the monthly fee if availability falls below 99.5%.
+3.2 Credit requests must be submitted within 30 days of the incident, subject to verification by the provider.
+
+4. Termination
+4.1 Either party may terminate this agreement with 30 days written notice.
+4.2 The customer shall pay all outstanding fees before termination.

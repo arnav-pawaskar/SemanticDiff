@@ -1,0 +1,133 @@
+# Seed provisions for the controlled benchmark (one per line; '#' lines ignored).
+# Domains: academic, HR, SLA/IT, tenancy, lending, healthcare, travel, library, procurement, privacy.
+All students must maintain 75% attendance in each course.
+Students may appeal a grade within 14 days of the publication of results.
+The Registrar shall publish the examination timetable 30 days before the examinations.
+Students with medical exemptions may appear for supplementary examinations.
+All undergraduate students must complete 160 credits to graduate.
+Students may withdraw from a course within 21 days of the start of the semester.
+The tuition fee is Rs. 85,000 per semester.
+The Dean of Academics must approve all changes to the curriculum.
+Final-year students must submit their thesis by 30 April 2025.
+Students must return library books within 15 days.
+The library remains open until 10 PM on weekdays.
+Students may borrow up to 5 books at a time.
+A late fee of Rs. 10 per day is charged for overdue books.
+Research scholars may access the digital archive from the campus network.
+Hostel residents must vacate their rooms within 7 days of the end of the semester.
+Visitors are allowed to enter the hostel between 4 PM and 7 PM.
+The hostel security deposit is refundable at the end of the academic year.
+All employees must complete the safety training within 30 days of joining.
+Employees receive 20 days of paid leave per year.
+Employees may carry forward up to 10 unused leave days to the next year.
+The HR Manager must approve all leave requests longer than 5 days.
+Employees must submit expense claims within 60 days of travel.
+Employees receive a travel allowance of Rs. 2,500 per day.
+Permanent employees are eligible for health insurance coverage.
+Employees must give 30 days of notice before resignation.
+The probation period for new employees is 6 months.
+Employees may work from home for up to 2 days per week.
+Overtime work must be approved by the Department Head.
+Salaries are paid on the last working day of each month.
+Employees are entitled to 26 weeks of maternity leave.
+The company shall reimburse relocation expenses up to Rs. 50,000.
+Contractors must sign a non-disclosure agreement before starting work.
+The service must be available 99.9% of the time in each month.
+The server must respond to requests within 200 milliseconds.
+Critical incidents must be resolved within 4 hours.
+The provider shall notify the customer of planned maintenance 48 hours in advance.
+Customers may request a service credit if availability falls below 99.5%.
+Backups must be retained for 90 days.
+Support is available 24 hours a day on all working days.
+The customer must report incidents through the support portal.
+User passwords must be changed every 90 days.
+Access to production systems is restricted to authorized engineers.
+Data must be encrypted at rest and in transit.
+The provider may suspend the service if payment is overdue by 15 days.
+The tenant must pay the rent by the 5th day of each month.
+The monthly rent is Rs. 25,000.
+The security deposit shall be returned within 30 days of the end of the lease.
+The tenant may terminate the lease with two months of notice.
+The landlord must carry out repairs within 7 days of a written request.
+Pets are not allowed in the apartment.
+The tenant shall not sublet the apartment without written consent from the landlord.
+The rent will increase by 5% each year.
+The borrower must repay the loan in 24 monthly instalments.
+The annual interest rate is 9.5%.
+A prepayment penalty of 2% applies to the outstanding amount.
+The lender may charge a late fee if an instalment is overdue.
+The borrower must maintain a minimum balance of Rs. 10,000 in the account.
+Loan applications are processed within 10 working days.
+Applicants must be at least 21 years old.
+The processing fee is non-refundable.
+Patients must fast for 8 hours before the procedure.
+Visitors may meet patients between 5 PM and 8 PM.
+The hospital shall provide emergency care to all patients.
+Prescriptions are valid for 30 days from the date of issue.
+Nurses must record vital signs every 4 hours.
+Children under 12 years are not permitted in the intensive care unit.
+Medical records must be retained for 7 years.
+Employees may claim reimbursement for economy class air travel.
+Hotel expenses are reimbursed up to Rs. 6,000 per night.
+Travel requests must be submitted 10 days before departure.
+International travel must be approved by the Finance Department.
+Employees must use the corporate card for all travel bookings.
+Purchase orders above Rs. 1,00,000 must be approved by the Procurement Committee.
+Vendors must submit invoices within 30 days of delivery.
+Payments to vendors are released within 45 days of invoice receipt.
+All vendors must provide a valid tax registration certificate.
+The company may reject deliveries that do not meet the specifications.
+Quotations must be obtained from at least three suppliers.
+Personal data must be deleted within 30 days of a deletion request.
+The company shall notify users of a data breach within 72 hours.
+Users may request a copy of their personal data at any time.
+Personal data may be shared with third parties for marketing purposes.
+Cookies are used to improve the user experience.
+The Data Protection Officer must review all new data processing activities.
+All students must wear identity cards on campus.
+Students may use the gymnasium free of charge.
+The scholarship amount is Rs. 40,000 per year.
+Scholarship holders must maintain a CGPA of at least 8.0.
+Students receive a certificate after completing the internship.
+The internship must last at least 8 weeks.
+The examination fee is payable before registration.
+Answer sheets will be destroyed after 6 months.
+Students may apply for re-evaluation if they are not satisfied with their marks.
+Attendance below 65% will result in detention.
+Candidates must bring a valid photo identity card to the examination hall.
+Mobile phones are prohibited in the examination hall.
+The canteen is open from 8 AM to 9 PM.
+Parking is available to all staff members.
+Two-wheelers must be parked in the designated area.
+Guests must register at the main gate.
+Employees must wear safety helmets on the construction site.
+Fire drills are conducted every 3 months.
+The warranty covers manufacturing defects for 2 years.
+Customers may return products within 10 days of delivery.
+Refunds are processed within 7 working days.
+Delivery is free for orders above Rs. 500.
+Orders placed before 2 PM are shipped on the same day.
+Applications must be sent to the Registrar of Mumbai University.
+The Hostel Warden may inspect rooms without prior notice.
+The Examination Committee shall announce the results within 45 days.
+Disputes shall be resolved by the courts of Mumbai.
+The Chief Medical Officer must approve all surgical procedures.
+The IT Department must review all software purchases.
+The Academic Council may revise the fee structure every year.
+Complaints must be addressed to the Accounts Office.
+The Board of Governors shall appoint the Director.
+The training programme will be held in Bengaluru.
+The Legal Department must review all vendor contracts.
+The Placement Cell shall coordinate all campus interviews.
+Late submissions are accepted with a penalty of 10%.
+The registration fee is refundable within 7 days of payment.
+The shuttle service is available to all residents.
+The offer letter is valid for 15 days.
+Weekend classes are optional for all students.
+Attendance at the orientation is mandatory for new employees.
+The hostel fee will increase by 10% next year.
+Transfer requests are approved by the Dean of Students.
+Smoking is prohibited on the campus.
+Guests are permitted in the common room until 9 PM.
+The gymnasium is open to alumni on weekends.
+Cash payments are included in the monthly statement.

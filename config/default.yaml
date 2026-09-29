@@ -1,0 +1,36 @@
+# SemanticDiff default configuration.
+# Thresholds marked (calibrated) are tuned on the dev split by eval/calibrate.py;
+# the values here are the defaults used until calibration is run.
+
+models:
+  spacy: en_core_web_lg
+  embedding: sentence-transformers/all-mpnet-base-v2
+  nli: cross-encoder/nli-deberta-v3-base
+
+device: auto            # auto | cuda | cpu
+
+ingest:
+  header_footer_min_page_ratio: 0.5   # a line repeated on >= this share of pages is dropped
+  split_semicolons: true              # split top-level "; " segments into separate provisions
+  min_provision_chars: 3
+
+align:
+  alpha: 0.7            # fused = alpha * embedding_cosine + (1 - alpha) * token_overlap
+  threshold: 0.55       # (calibrated) minimum fused similarity for two provisions to be paired
+
+verdict:
+  entail: 0.60          # (calibrated) bidirectional entailment probability => equivalent
+  contradiction: 0.60   # (calibrated) contradiction probability in either direction => reversal
+  preserve_similarity: 0.92   # embedding cosine above which an unexplained, non-contradicting pair counts as preserving
+  unexplained_min_tokens: 1   # unexplained content-word edits needed before we call a pair UNCLASSIFIED
+
+textual_levels:         # word-level edit ratio -> LOW / MEDIUM / HIGH textual change
+  medium: 0.20
+  high: 0.50
+
+nli:
+  batch_size: 32
+  max_length: 256
+
+impact:
+  max_hops: 2
