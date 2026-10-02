@@ -37,7 +37,7 @@ def decide(changes: list[AtomicChange], nli: Optional[NLIResult], sim_embed: Opt
     if changes:
         if E:
             notes.append(f"Extractors and NLI disagree: NLI finds the versions mutually entailing "
-                         f"(p={ent:.2f}) — review the detected changes.")
+                         f"(p={ent:.2f}). Review the detected changes.")
         return Verdict.MATERIAL, "V6:extractor-changes", [], notes, 1.0
 
     if E:

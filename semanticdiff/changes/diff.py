@@ -122,13 +122,13 @@ def _deontic_changes(f1, f2, own: Ownership, new_id, notes) -> list[AtomicChange
             cue = b.negation_cue if b.negated else a.negation_cue
             out.append(AtomicChange(
                 id=new_id(), category=C.NEGATION, subtype=sub,
-                description=f"Negation {sub.lower()} — {transition}",
+                description=f"Negation {sub.lower()}: {transition}",
                 old=_text(own.doc1, span_a), new=_text(own.doc2, span_b),
                 old_span=span_a, new_span=span_b, evidence={**ev, "negation_cue": cue}))
         elif POLARITY[a.state] * POLARITY[b.state] == -1:
             out.append(AtomicChange(
                 id=new_id(), category=C.REVERSAL, subtype=f"{s1}->{s2}",
-                description=f"Meaning reversed — {transition}",
+                description=f"Meaning reversed: {transition}",
                 old=_text(own.doc1, span_a), new=_text(own.doc2, span_b),
                 old_span=span_a, new_span=span_b, evidence=ev))
         else:
@@ -136,13 +136,13 @@ def _deontic_changes(f1, f2, own: Ownership, new_id, notes) -> list[AtomicChange
             if c1 in MODAL_STRENGTH and c2 in MODAL_STRENGTH:
                 sub = "STRENGTHENED" if MODAL_STRENGTH[c2] > MODAL_STRENGTH[c1] else "WEAKENED"
                 what = "Prohibition" if a.negated else "Obligation"
-                desc = f"{what} {sub.lower()} — {transition}"
+                desc = f"{what} {sub.lower()}: {transition}"
             elif c1.value == "NONE":
-                sub, desc = "INTRODUCED", f"Modality introduced — {transition}"
+                sub, desc = "INTRODUCED", f"Modality introduced: {transition}"
             elif c2.value == "NONE":
-                sub, desc = "REMOVED", f"Modality removed — {transition}"
+                sub, desc = "REMOVED", f"Modality removed: {transition}"
             else:
-                sub, desc = "CHANGED", f"Modality changed — {transition}"
+                sub, desc = "CHANGED", f"Modality changed: {transition}"
             out.append(AtomicChange(
                 id=new_id(), category=C.MODALITY, subtype=sub, description=desc,
                 old=a.trigger or None, new=b.trigger or None,
@@ -242,7 +242,7 @@ def _quantity_changes(f1, f2, own: Ownership, new_id, notes, cond_removed, cond_
         elif a.dimension != b.dimension or (a.dimension == "currency" and a.unit != b.unit):
             out.append(AtomicChange(
                 id=new_id(), category=cat, subtype="UNIT_CHANGED",
-                description=f"Unit changed — {a.unit} → {b.unit}", old=a.raw, new=b.raw,
+                description=f"Unit changed: {a.unit} → {b.unit}", old=a.raw, new=b.raw,
                 old_span=a.span, new_span=b.span,
                 evidence={"old_unit": a.unit, "new_unit": b.unit, "old_dimension": a.dimension,
                           "new_dimension": b.dimension}))
@@ -272,7 +272,7 @@ def _quantity_changes(f1, f2, own: Ownership, new_id, notes, cond_removed, cond_
         if comparator_class(a.comparator) != comparator_class(b.comparator):
             out.append(AtomicChange(
                 id=new_id(), category=cat, subtype="COMPARATOR_CHANGED",
-                description=f"Comparator changed — {a.comparator or 'exact'} → {b.comparator or 'exact'}",
+                description=f"Comparator changed: {a.comparator or 'exact'} → {b.comparator or 'exact'}",
                 old=describe(a), new=describe(b), old_span=wa, new_span=wb,
                 evidence={"old_comparator": a.comparator, "new_comparator": b.comparator}))
         # comparator words sit just left of the quantity; claim them with it
@@ -362,7 +362,7 @@ def _scope_changes(f1, f2, own, new_id) -> list[AtomicChange]:
             if role == "agent" and own.is_free(a.span, b.span):
                 out.append(AtomicChange(
                     id=new_id(), category=C.ENTITY, subtype="REPLACED",
-                    description=f"{who} changed — {a.head} → {b.head}", old=a.text, new=b.text,
+                    description=f"{who} changed: {a.head} → {b.head}", old=a.text, new=b.text,
                     old_span=a.span, new_span=b.span, evidence={"role": role}))
                 own.claim(a.span, b.span)
             continue
@@ -473,7 +473,7 @@ def _antonym_changes(own: Ownership, new_id) -> list[AtomicChange]:
                     s1 = (d1[i].idx, d1[i].idx + len(d1[i].text))
                     s2 = (d2[j].idx, d2[j].idx + len(d2[j].text))
                     out.append(AtomicChange(id=new_id(), category=C.REVERSAL, subtype="ANTONYM",
-                                            description=f"Meaning reversed — '{d1[i].text}' → '{d2[j].text}'",
+                                            description=f"Meaning reversed: '{d1[i].text}' → '{d2[j].text}'",
                                             old=d1[i].text, new=d2[j].text, old_span=s1, new_span=s2,
                                             evidence={"lemma_pair": [l1, l2]}))
                     own.old.add(i); own.new.add(j)

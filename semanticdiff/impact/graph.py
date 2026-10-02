@@ -139,9 +139,11 @@ def _graph(pairs, rows, definitions, references, impacts) -> dict:
 def to_dot(graph: dict, only_changed: bool = False) -> str:
     """Render the impact graph as Graphviz DOT (for st.graphviz_chart)."""
     keep_terms = {n["id"] for n in graph["nodes"] if n["type"] == "term" and (n["changed"] or not only_changed)}
-    lines = ["digraph G {", '  rankdir=LR; bgcolor="transparent";',
-             '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];',
-             '  edge [color="#8b949e", fontcolor="#8b949e", fontsize=8, fontname="Helvetica"];']
+    # colours from the app theme: ink = changed definition, peach = affected clause, white = context
+    lines = ["digraph G {", '  rankdir=LR; bgcolor="transparent"; nodesep=0.35; ranksep=0.9;',
+             '  node [shape=box, style="rounded,filled", fontname="Inter", fontsize=10, color="#dcdcdf", '
+             'fontcolor="#17191c", fillcolor="#ffffff", penwidth=1, margin="0.2,0.09"];',
+             '  edge [color="#a3a6af", fontcolor="#6b6f7a", fontsize=8, fontname="Inter", arrowsize=0.6];']
     used = set()
     for e in graph["edges"]:
         term = e["target"] if e["target"].startswith("term:") else e["source"]
@@ -153,14 +155,14 @@ def to_dot(graph: dict, only_changed: bool = False) -> str:
         if n["id"] not in used:
             continue
         if n["type"] == "term":
-            color = "#e5534b" if n["changed"] else "#8b949e"
-            attrs = f'shape=ellipse, fillcolor="{color}", fontcolor="white"'
+            attrs = ('shape=ellipse, fillcolor="#17191c", color="#17191c", fontcolor="#ffffff"' if n["changed"]
+                     else 'shape=ellipse, fillcolor="#e6e6e9", color="#e6e6e9"')
         elif n.get("changed"):
-            attrs = 'fillcolor="#f8d7da"'
+            attrs = 'color="#17191c", penwidth=1.2'
         elif n.get("affected"):
-            attrs = 'fillcolor="#fff3cd"'
+            attrs = 'fillcolor="#fbe1d1", color="#fbe1d1", fontcolor="#5d2a1a"'
         else:
-            attrs = 'fillcolor="#eeeeee"'
+            attrs = 'fillcolor="#ffffff"'
         label = n["label"].replace('"', "'")
         lines.append(f'  "{n["id"]}" [label="{label}", {attrs}];')
     lines.append("}")

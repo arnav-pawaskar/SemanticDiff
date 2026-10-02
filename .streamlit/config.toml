@@ -2,6 +2,78 @@
 # The watcher walks every lazily-imported transformers submodule: slow and noisy.
 fileWatcherType = "none"
 headless = true
+enableStaticServing = true          # serves app/static/ (self-hosted fonts, works offline)
 
 [browser]
 gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"             # no "Deploy" button in the demo
+
+# ---------------------------------------------------------------------------------------
+# Theme: Refero "Steep" style (serif analytics on warm paper).
+#   ink #17191c, paper #ffffff, mist #f2f2f3, fog #fafafb, hairline #ececec,
+#   one chromatic pair: blush peach #fbe1d1 + sienna #5d2a1a.
+# The primary action is ink (filled black pill), as in Steep. Secondary text uses
+# #6b6f7a instead of Steep's #777b86, which is ~4.2:1 on white and fails WCAG AA.
+# ---------------------------------------------------------------------------------------
+[theme]
+base = "light"
+primaryColor = "#17191c"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f2f2f3"
+textColor = "#17191c"
+linkColor = "#17191c"
+linkUnderline = false
+borderColor = "#ececec"
+showWidgetBorder = true
+showSidebarBorder = true
+codeBackgroundColor = "#f2f2f3"
+codeTextColor = "#17191c"
+dataframeBorderColor = "#ececec"
+dataframeHeaderBackgroundColor = "#fafafb"
+
+font = "Inter, -apple-system, 'Segoe UI', sans-serif"
+headingFont = "'Source Serif 4', 'Tiempos Headline', Georgia, serif"
+codeFont = "'JetBrains Mono', ui-monospace, monospace"
+baseFontSize = 15
+headingFontSizes = ["2.75rem", "2rem", "1.6rem", "1.2rem", "1rem", "0.9rem"]
+headingFontWeights = 400
+codeFontSize = "0.82rem"
+
+baseRadius = "16px"                 # inputs (Steep: 16px)
+buttonRadius = "full"               # pills (Steep: 9999px)
+
+redColor = "#5d2a1a"
+orangeColor = "#5d2a1a"
+greenColor = "#17191c"
+blueColor = "#6b6f7a"
+grayColor = "#6b6f7a"
+chartCategoricalColors = ["#17191c", "#5d2a1a", "#979799", "#fbe1d1"]
+chartSequentialColors = ["#ffffff", "#fdf3ec", "#fbe9dd", "#fbe1d1", "#ecc5ae", "#d29e83", "#b0765b", "#8a4f37", "#5d2a1a", "#3d1a0f"]
+
+[theme.sidebar]
+backgroundColor = "#fafafb"
+secondaryBackgroundColor = "#f2f2f3"
+borderColor = "#ececec"
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/Inter-Variable.woff2"
+weight = "100 900"
+
+[[theme.fontFaces]]
+family = "Source Serif 4"
+url = "app/static/fonts/SourceSerif4-Variable.woff2"
+weight = "200 900"
+
+[[theme.fontFaces]]
+family = "Source Serif 4"
+url = "app/static/fonts/SourceSerif4-Variable-Italic.woff2"
+weight = "200 900"
+style = "italic"
+
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "app/static/fonts/JetBrainsMono-400.woff2"
+weight = 400
