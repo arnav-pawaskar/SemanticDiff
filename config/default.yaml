@@ -22,6 +22,7 @@ verdict:
   entail: 0.60          # (calibrated) bidirectional entailment probability => equivalent
   contradiction: 0.60   # (calibrated) contradiction probability in either direction => reversal
   preserve_similarity: 0.92   # embedding cosine above which an unexplained, non-contradicting pair counts as preserving
+  similarity_only_preserves: true  # general documents; paper mode sets this false
   unexplained_min_tokens: 1   # unexplained content-word edits needed before we call a pair UNCLASSIFIED
 
 textual_levels:         # word-level edit ratio -> LOW / MEDIUM / HIGH textual change

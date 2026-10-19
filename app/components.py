@@ -240,9 +240,9 @@ def hero_html(title: str, files: str, summary: dict, sim: dict) -> str:
                "Similar on paper." if emb >= 0.75 else "Substantially rewritten.")
     if changed:
         count = _plural(changed, "clause", "clauses").replace(" ", "&nbsp;")   # keep "12 clauses" on one line
-        head = f'{wording} <em>{count}</em> changed meaning.'
+        head = f'{wording} <em>{count}</em> need review.'
     else:
-        head = f'{wording} <em>No clause</em> changed meaning.'
+        head = f'{wording} <em>No differences</em> found.'
     sub = (f'SemanticDiff aligned {s["aligned_rows"]} clauses and found {_plural(high, "high-impact change", "high-impact changes")}. '
            f'{_plural(s["affected_by_dependency"], "untouched clause", "untouched clauses")} shifted because a definition '
            f'{"it relies" if s["affected_by_dependency"] == 1 else "they rely"} on changed.')
@@ -265,7 +265,7 @@ def hero_html(title: str, files: str, summary: dict, sim: dict) -> str:
     pct = edited_changed / edited if edited else 0.0
     peach = (f'<div class="sd-peach offset"><div class="sd-art-title">Edited clauses</div>'
              f'<div class="sd-ring">{_ring(pct)}<div><div class="pct">{pct:.0%}</div>'
-             f'<div class="lbl">changed meaning</div></div></div>'
+             f'<div class="lbl">material or unresolved</div></div></div>'
              f'<div class="sd-delta" style="color:#5d2a1a;opacity:.85">{edited_changed} of {edited}; '
              f'{s["meaning_preserving"]} only reworded</div></div>')
 
@@ -281,8 +281,8 @@ def hero_html(title: str, files: str, summary: dict, sim: dict) -> str:
 def empty_html() -> str:
     return ('<div class="sd-hero" style="grid-template-columns:1fr"><div><p class="sd-kicker">Upload</p>'
             '<div class="sd-display" role="heading" aria-level="1">Compare two versions of <em>a document</em>.</div>'
-            '<p class="sd-sub">Add version 1 and version 2 in the sidebar. Text-layer PDFs, plain text and Markdown '
-            'work; scanned PDFs need OCR first.</p></div></div>')
+            '<p class="sd-sub">Add version 1 and version 2 in the sidebar. PDFs, including scanned pages, '
+            'plain text and Markdown are supported.</p></div></div>')
 
 
 def overview_html(summary: dict) -> str:
@@ -348,6 +348,8 @@ def card_html(pa: PairAnalysis, impacts_by_id: dict) -> str:
         chips.append('<span class="sd-chip">Edited</span>')
     if pa.pair.moved:
         chips.append('<span class="sd-chip">Moved</span>')
+    if pa.verdict_rule.startswith("paper:") and st_ != PairStatus.UNCHANGED:
+        chips.append('<span class="sd-chip">Manual review</span>')
     if pa.affected_by:
         chips.append('<span class="sd-chip peach">Affected by a definition</span>')
     verdict = ""
@@ -359,11 +361,17 @@ def card_html(pa: PairAnalysis, impacts_by_id: dict) -> str:
     sec = _clause_label(pa.v2_section or pa.v1_section)
     if pa.pair.moved and pa.v1_section and pa.v2_section and pa.v1_section != pa.v2_section:
         sec = f"{_clause_label(pa.v1_section)} moved to {_clause_label(pa.v2_section).replace('Clause ', '')}"
+    page = ""
+    if pa.v1_page and pa.v2_page:
+        page = f"Pages {pa.v1_page} → {pa.v2_page}" if pa.v1_page != pa.v2_page else f"Page {pa.v2_page}"
+    elif pa.v2_page or pa.v1_page:
+        page = f"Page {pa.v2_page or pa.v1_page}"
     levels = ""
     if st_ == PairStatus.MODIFIED:
         levels = (f'<div class="sd-levels"><span>Text change <b>{pa.textual_level.value.lower()}</b></span>'
                   f'<span>Meaning change <b>{pa.semantic_level.value.lower()}</b></span></div>')
-    head = (f'<div class="sd-rh">{f"<span class=sd-sec>{e(sec)}</span>" if sec else ""}{"".join(chips)}'
+    head = (f'<div class="sd-rh">{f"<span class=sd-sec>{e(sec)}</span>" if sec else ""}'
+            f'{f"<span class=sd-sec>{e(page)}</span>" if page else ""}{"".join(chips)}'
             f'{verdict}{levels}</div>')
 
     left, right = diff_sides(pa)
@@ -374,7 +382,7 @@ def card_html(pa: PairAnalysis, impacts_by_id: dict) -> str:
     if st_ in (PairStatus.ADDED, PairStatus.REMOVED):
         shown = pa.changes
     body = "".join(finding_html(c) for c in shown)
-    body += "".join(f'<div class="sd-note"><span class="k">Equivalent</span><span>{e(n)}</span></div>'
+    body += "".join(f'<div class="sd-note"><span class="k">Note</span><span>{e(n)}</span></div>'
                     for n in pa.notes)
     for iid in pa.affected_by:
         imp = impacts_by_id.get(iid)

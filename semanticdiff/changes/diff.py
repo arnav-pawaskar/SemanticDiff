@@ -196,21 +196,36 @@ def _inside(span, conds: list[Condition], idx: list[int]) -> bool:
 
 # ================================================================== quantities
 def _pair_quantities(q1: list[Quantity], q2: list[Quantity], own: Ownership, equivalent=equivalent):
+    def context(doc, q):
+        before = doc.text[max(0, q.span[0] - 65):q.span[0]]
+        return set(re.findall(r"[A-Za-z]{3,}", before.lower())[-5:]) - {
+            "the", "and", "for", "with", "from", "that", "this", "was", "while",
+            "point", "absolute", "improvement"}
+
     pairs, used2 = [], set()
     for i, a in enumerate(q1):                                  # equivalent values first
         for j, b in enumerate(q2):
             if j not in used2 and equivalent(a, b) and comparator_class(a.comparator) == comparator_class(b.comparator):
                 pairs.append((i, j)); used2.add(j); break
     done1 = {i for i, _ in pairs}
-    for i, a in enumerate(q1):                                  # then same dimension, same head preferred
+    for i, a in enumerate(q1):                                  # then same dimension and nearby claim context
         if i in done1:
             continue
         cands = [j for j, b in enumerate(q2)
                  if j not in used2 and dimension_family(b.dimension) == dimension_family(a.dimension)]
         if not cands:
             continue
-        cands.sort(key=lambda j: (q2[j].head != a.head, abs(j - i)))
+        old_context = context(own.doc1, a)
+        def rank(j):
+            new_context = context(own.doc2, q2[j])
+            overlap = len(old_context & new_context) / max(1, len(old_context | new_context))
+            return (overlap, -abs(j - i), q2[j].head == a.head)
+        cands.sort(key=rank, reverse=True)
         j = cands[0]
+        new_context = context(own.doc2, q2[j])
+        if (old_context and new_context and not old_context & new_context and
+                not (len(q1) == len(q2) == 1)):
+            continue
         pairs.append((i, j)); used2.add(j); done1.add(i)
     return pairs, [i for i in range(len(q1)) if i not in done1], [j for j in range(len(q2)) if j not in used2]
 

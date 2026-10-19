@@ -31,10 +31,11 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv/Scripts/python.exe torch --index-url https://download.pytorch.org/whl/cu126
 uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 .venv/Scripts/python.exe -m spacy download en_core_web_lg
-.venv/Scripts/python.exe scripts/smoke_models.py        # downloads SBERT + NLI, checks the GPU
+.venv/Scripts/python.exe -m scripts.smoke_models     # downloads SBERT + NLI, checks the GPU
 ```
 
-(Use the CPU torch wheel if there is no NVIDIA GPU; everything still runs, NLI is just slower.)
+(On Linux, replace `.venv/Scripts/python.exe` with `.venv/bin/python`. Use the CPU torch
+wheel if there is no NVIDIA GPU; everything still runs, though NLI is slower.)
 
 ## Use it
 
@@ -51,9 +52,37 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 # Inspect the structured frame the extractors build for a sentence
 .venv/Scripts/python.exe scripts/show_frames.py "Visitors are prohibited from entering the hostel on weekends."
 
-# Tests (21 golden cases from the specification + document-level tests)
+# Regression tests (sentence, document, PDF and paper cases)
 .venv/Scripts/python.exe -m pytest tests -q
 ```
+
+### Try two versions of a real research paper
+
+```bash
+.venv/Scripts/python.exe -m scripts.download_paper_demo
+.venv/Scripts/python.exe -m semanticdiff results/cache/papers/attention_v1.pdf results/cache/papers/attention_v2.pdf --json results/cache/papers/attention_report.json
+.venv/Scripts/python.exe -m scripts.validate_paper_demo results/cache/papers/attention_report.json
+.venv/Scripts/python.exe -m semanticdiff results/cache/papers/bert_v1.pdf results/cache/papers/bert_v2.pdf --json results/cache/papers/bert_report.json
+.venv/Scripts/python.exe -m scripts.validate_paper_demo results/cache/papers/bert_report.json
+```
+
+This downloads the public [v1](https://arxiv.org/abs/1706.03762v1) and
+[v2](https://arxiv.org/abs/1706.03762v2) PDFs of *Attention Is All You Need* into an ignored
+local cache, plus [v1](https://arxiv.org/abs/1810.04805v1) and
+[v2](https://arxiv.org/abs/1810.04805v2) of *BERT*. Both pairs appear in the Streamlit demo selector.
+Paper ingestion detects an early **Abstract**, skips author/affiliation front matter, reads
+two-column pages down each column, ignores rotated page stamps, and shows PDF page numbers
+on comparison cards. Bracketed numeric citations are kept in the visible text diff but are
+not treated as measurements; the report notes when those references change. Image-only pages
+are OCRed locally and the report records which pages used OCR.
+The real-paper checks verify the *Attention* abstract's **41.0 → 41.2 BLEU** and
+**3.5 → 4.5 days** changes, the *BERT* abstract's **80.4% → 80.5%** change,
+and several passages moved into BERT's appendix. Paper mode keeps tables,
+equations, captions, references, incomplete sentences and ambiguous footnote markers in
+the report with a **Manual review** label. Added and removed paper passages are also
+review items because PDF extraction can split a sentence differently across versions. Adjacent
+sentence fragments with strong text coverage are rejoined before comparison.
+The system does not certify their semantic meaning.
 
 ## Architecture
 
@@ -62,6 +91,7 @@ PDF/TXT ─► extract (PyMuPDF, header/footer removal, de-hyphenation)
         ─► structure (sections, numbered clauses, list items)
         ─► segment (spaCy sentences + list items + ';' splits)          → Provision[]
         ─► align: exact match → Hungarian on fused(SBERT cosine, token overlap) → LIS move detection
+                  (paper mode matches within top-level sections and requires stronger move evidence)
                                                                          → ADDED / REMOVED / MODIFIED / MOVED
         ─► for each MODIFIED pair, build a ProvisionFrame per version:
               deontic state   (modal class × negation, from the dependency parse)
@@ -96,7 +126,7 @@ Key design decisions (see `docs/PLAN.md` for the full review):
 | V1 | none | bidirectional entailment ≥ τₑ | MEANING_PRESERVING |
 | V2 | none | contradiction ≥ τ꜀ | MATERIAL (REVERSAL, NLI-only, flagged unexplained) |
 | V3 | none | only function words changed | MEANING_PRESERVING |
-| V4 | none | embedding cosine ≥ τₛ | MEANING_PRESERVING (low confidence) |
+| V4 | none | embedding cosine ≥ τₛ, but NLI does not confirm equivalence | MEANING_PRESERVING (low confidence) for general documents; UNCLASSIFIED for papers |
 | V5 | none | otherwise | UNCLASSIFIED |
 | V6 | ≥ 1 | – | MATERIAL (+ note if NLI says equivalent) |
 
@@ -138,9 +168,15 @@ tests/          golden acceptance tests
 docs/PLAN.md    design review, frozen architecture, phased plan
 ```
 
-## Limitations (V1)
+## Limitations
 
-Text-layer PDFs only (no OCR, no tables); split/merge of clauses is not detected (they appear as
-added + removed); deontic "may" is assumed (epistemic "may" is not distinguished); scope analysis covers
+Scanned PDF pages are OCRed, but OCR errors can affect alignment and extracted numbers. Tables,
+equations and figure content are retained as text for manual review, but not structurally interpreted.
+Paper front matter before **Abstract** is excluded from comparison.
+The NLI and rule models were developed for short normative prose, so scientific claims without
+clear numeric or lexical cues can remain UNCLASSIFIED. PDF reading order is heuristic and should be
+reviewed for complex layouts. Adjacent paper fragments with high text coverage can be rejoined;
+larger clause rewrites and distant split/merge cases may still appear as added and removed.
+Deontic "may" is assumed (epistemic "may" is not distinguished); scope analysis covers
 quantifiers and noun-phrase modifiers of the agent/patient, not arbitrary scope; antonym reversal relies on
 a lexicon plus NLI; the impact graph follows explicit definitions and "Section N" references only.

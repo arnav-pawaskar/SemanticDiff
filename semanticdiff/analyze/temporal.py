@@ -13,6 +13,7 @@ from datetime import datetime
 
 from dateutil import parser as dateparser
 
+from semanticdiff.analyze.citations import citation_char_spans
 from semanticdiff.models import DateMention, Quantity
 
 _MONTHS = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
@@ -50,13 +51,14 @@ def extract_dates(doc, quantities: list[Quantity]) -> list[DateMention]:
     them, e.g. "before 2 PM"); remaining spaCy DATE/TIME entities that are not durations
     are kept as relative dates ("weekends", "the same day")."""
     q_spans = [q.span for q in quantities if q.dimension in ("time", "business_time", "age")]
+    citation_spans = citation_char_spans(doc.text)
     out: list[DateMention] = []
     taken: list[tuple[int, int]] = []
     overlaps = lambda s, e, spans: any(a < e and b > s for a, b in spans)
     for rx in (_EXPLICIT_DATE, _CLOCK):
         for m in rx.finditer(doc.text):
             s, e = m.span()
-            if overlaps(s, e, taken) or overlaps(s, e, q_spans):
+            if overlaps(s, e, taken) or overlaps(s, e, q_spans) or overlaps(s, e, citation_spans):
                 continue
             text = m.group(0)
             out.append(DateMention(raw=text, normalized=_normalise(text) or text.lower(), span=(s, e)))
@@ -65,13 +67,15 @@ def extract_dates(doc, quantities: list[Quantity]) -> list[DateMention]:
         if ent.label_ not in ("DATE", "TIME"):
             continue
         s, e = ent.start_char, ent.end_char
-        if overlaps(s, e, q_spans) or overlaps(s, e, taken):
+        if overlaps(s, e, q_spans) or overlaps(s, e, taken) or overlaps(s, e, citation_spans):
             continue
         root = ent.root
         if root.dep_ in ("amod", "compound", "nmod") and not (ent.start <= root.head.i < ent.end) \
                 and root.head.pos_ in ("NOUN", "PROPN"):
             continue                 # "final-year students", "annual leave": a modifier, not a date
         text = ent.text.strip()
+        if not re.search(r"[A-Za-z]", text) and not _ANCHOR.search(text):
+            continue                 # table numbers are often mislabeled DATE by NER
         out.append(DateMention(raw=text, normalized=_normalise(text) or text.lower(), span=(s, e)))
     out.sort(key=lambda d: d.span[0])
     return out

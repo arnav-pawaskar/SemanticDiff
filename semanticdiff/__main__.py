@@ -41,6 +41,11 @@ def _print_pair(pa, show_all: bool) -> None:
 
 
 def main(argv=None) -> int:
+    # Windows terminals and redirected PowerShell output may use cp1252. A
+    # scientific paper can contain arbitrary Unicode symbols; keep CLI output
+    # readable and let JSON preserve the original text.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     ap = argparse.ArgumentParser(prog="semanticdiff", description="Meaning-aware document comparison")
     ap.add_argument("v1", nargs="?")
     ap.add_argument("v2", nargs="?")
@@ -60,6 +65,8 @@ def main(argv=None) -> int:
     if not (args.v1 and args.v2):
         ap.error("give two documents or --pair")
     report = engine.compare(args.v1, args.v2, os.path.basename(args.v1), os.path.basename(args.v2))
+    if args.json:
+        save_report(report, args.json)
     for pa in report.pairs:
         _print_pair(pa, args.all)
     print("\nImpacts:")
@@ -68,7 +75,6 @@ def main(argv=None) -> int:
     s = report.summary
     print(f"\nSummary: {s}\nDocument similarity: {report.doc_similarity}\nTimings: {report.meta['timings_s']}")
     if args.json:
-        save_report(report, args.json)
         print(f"Report written to {args.json}")
     return 0
 

@@ -23,6 +23,7 @@ class ProvisionKind(StrEnum):
     SENTENCE = "sentence"
     LIST_ITEM = "list_item"
     HEADING = "heading"
+    NON_PROSE = "non_prose"
 
 
 class PairStatus(StrEnum):
@@ -108,6 +109,8 @@ class Document:
     version: str
     raw_text: str
     provisions: list[Provision] = field(default_factory=list)
+    document_type: str = "general"
+    ocr_pages: list[int] = field(default_factory=list)
 
 
 # ----------------------------------------------------------------- frame elements
@@ -202,6 +205,8 @@ class AlignedPair:
     sim_embed: Optional[float] = None
     sim_token: Optional[float] = None
     sim_fused: Optional[float] = None
+    v1_ids: list[str] = field(default_factory=list)
+    v2_ids: list[str] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------- changes
@@ -247,6 +252,10 @@ class PairAnalysis:
     v2_text: Optional[str]
     v1_section: str = ""
     v2_section: str = ""
+    v1_page: Optional[int] = None
+    v2_page: Optional[int] = None
+    v1_kind: Optional[ProvisionKind] = None
+    v2_kind: Optional[ProvisionKind] = None
     textual_change: float = 0.0
     textual_level: Severity = Severity.LOW
     semantic_level: Severity = Severity.LOW

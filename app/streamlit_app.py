@@ -31,6 +31,15 @@ DEMOS = {
                              "academic_regulations_v1.txt", "academic_regulations_v2.txt"),
     "Service level agreement": ("Cloud service level agreement, revised", "sla_v1.txt", "sla_v2.txt"),
 }
+PAPER_CACHE = ROOT / "results" / "cache" / "papers"
+if (PAPER_CACHE / "attention_v1.pdf").exists() and (PAPER_CACHE / "attention_v2.pdf").exists():
+    DEMOS["Research paper · Attention Is All You Need"] = (
+        "Attention Is All You Need, arXiv version 1 to version 2",
+        PAPER_CACHE / "attention_v1.pdf", PAPER_CACHE / "attention_v2.pdf")
+if (PAPER_CACHE / "bert_v1.pdf").exists() and (PAPER_CACHE / "bert_v2.pdf").exists():
+    DEMOS["Research paper · BERT"] = (
+        "BERT, arXiv version 1 to version 2",
+        PAPER_CACHE / "bert_v1.pdf", PAPER_CACHE / "bert_v2.pdf")
 INK, SIENNA, PEACH, SLATE, ASH, HAIRLINE = "#17191c", "#5d2a1a", "#fbe1d1", "#6b6f7a", "#979799", "#ececec"
 
 st.set_page_config(page_title="SemanticDiff", page_icon=":material/difference:", layout="wide")
@@ -62,8 +71,14 @@ with st.sidebar:
     if source == "Demo pair":
         demo = st.selectbox("Demo", list(DEMOS))
         title, f1, f2 = DEMOS[demo]
-        b1, n1 = (DEMO / f1).read_bytes(), f1
-        b2, n2 = (DEMO / f2).read_bytes(), f2
+        p1, p2 = (Path(f1) if isinstance(f1, Path) else DEMO / f1,
+                  Path(f2) if isinstance(f2, Path) else DEMO / f2)
+        b1, n1 = p1.read_bytes(), p1.name
+        b2, n2 = p2.read_bytes(), p2.name
+        if demo.startswith("Research paper"):
+            arxiv_id = "1810.04805" if demo.endswith("BERT") else "1706.03762"
+            st.caption(f"Public arXiv PDFs: [v1](https://arxiv.org/abs/{arxiv_id}v1) · "
+                       f"[v2](https://arxiv.org/abs/{arxiv_id}v2)")
     else:
         u1 = st.file_uploader("Version 1", type=["pdf", "txt", "md"], help="Text-layer PDF, TXT or Markdown")
         u2 = st.file_uploader("Version 2", type=["pdf", "txt", "md"], help="Text-layer PDF, TXT or Markdown")
@@ -77,7 +92,11 @@ if source == "Upload" and not (u1 and u2):
     st.markdown(empty_html(), unsafe_allow_html=True)
     st.stop()
 
-report = run_compare(b1, n1, b2, n2)
+try:
+    report = run_compare(b1, n1, b2, n2)
+except ValueError as exc:
+    st.error(str(exc))
+    st.stop()
 s = report.summary
 impacts_by_id = {i.id: i for i in report.impacts}
 
@@ -86,6 +105,12 @@ with st.sidebar:
     st.download_button("Download report", report_to_json(report), file_name="semanticdiff_report.json",
                        mime="application/json", icon=":material/arrow_downward:", type="primary", width="stretch")
     st.caption(f"Analysed on {report.meta['device'].upper()} in {report.meta['timings_s']['total']:.2f} s")
+    ocr = report.meta.get("ocr_pages", {})
+    if any(ocr.values()):
+        st.caption(f"OCR used on {len(ocr.get('v1', []))} page(s) in version 1 and "
+                   f"{len(ocr.get('v2', []))} in version 2. Verify recognized text against the PDFs.")
+    if "paper" in report.meta.get("document_types", {}).values():
+        st.caption(f"Paper mode: {s['paper_review']} non-prose or uncertain edits need source-page review.")
 
 # ------------------------------------------------------------------------------ hero + overview
 st.markdown(hero_html(title, f"{n1}  →  {n2}", s, report.doc_similarity), unsafe_allow_html=True)
@@ -98,7 +123,8 @@ tab_diff, tab_quad, tab_graph, tab_lab, tab_about = st.tabs([
 VIEWS = {
     "All": lambda pa: True,
     "High impact": lambda pa: any(ch.severity == Severity.HIGH for ch in pa.changes),
-    "Changed meaning": lambda pa: pa.verdict in (Verdict.MATERIAL, Verdict.UNCLASSIFIED),
+    "Material / unresolved": lambda pa: pa.verdict in (Verdict.MATERIAL, Verdict.UNCLASSIFIED),
+    "Manual review": lambda pa: pa.verdict == Verdict.UNCLASSIFIED and pa.pair.status != PairStatus.UNCHANGED,
     "Same meaning": lambda pa: pa.verdict == Verdict.MEANING_PRESERVING,
     "Added": lambda pa: pa.pair.status == PairStatus.ADDED,
     "Removed": lambda pa: pa.pair.status == PairStatus.REMOVED,
@@ -125,7 +151,17 @@ with tab_diff:
     if not show_unchanged and view == "All" and not kind:
         rows = [(k, pa) for k, pa in rows
                 if pa.pair.status != PairStatus.UNCHANGED or pa.pair.moved or pa.affected_by]
-    st.caption(f"Showing {len(rows)} of {len(report.pairs)} clauses")
+    total_rows = len(rows)
+    if total_rows > 60:
+        page_size = 50
+        page_count = (total_rows + page_size - 1) // page_size
+        page_number = st.number_input("Result page", min_value=1, max_value=page_count, value=1)
+        start = (page_number - 1) * page_size
+        rows = rows[start:start + page_size]
+        st.caption(f"Showing {start + 1}–{start + len(rows)} of {total_rows} matching clauses "
+                   f"({len(report.pairs)} total)")
+    else:
+        st.caption(f"Showing {total_rows} of {len(report.pairs)} clauses")
     if not rows:
         st.markdown('<p class="sd-lead">No clauses match this filter.</p>', unsafe_allow_html=True)
     for k, pa in rows:
@@ -141,7 +177,8 @@ with tab_quad:
     section("Text change is not meaning change",
             "Each point is an edited clause. Upper left: small edits that changed the meaning, which line diffs "
             "under-report. Lower right: heavy rewrites that kept it, which line diffs over-report.")
-    pts = [pa for pa in report.pairs if pa.pair.status == PairStatus.MODIFIED]
+    pts = [pa for pa in report.pairs if pa.pair.status == PairStatus.MODIFIED
+           and pa.verdict_rule != "paper:non-prose"]
     rnd = random.Random(0)
     level_y = {Severity.LOW: 0.0, Severity.MEDIUM: 1.0, Severity.HIGH: 2.0}
     fig = go.Figure()

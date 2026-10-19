@@ -74,7 +74,8 @@ def normalize_for_match(text: str) -> str:
 
 
 def segment_blocks(blocks: Iterable[Block], version: str, nlp,
-                   split_semi: bool = True, min_chars: int = 3) -> list[Provision]:
+                   split_semi: bool = True, min_chars: int = 3,
+                   paper_mode: bool = False) -> list[Provision]:
     provisions: list[Provision] = []
     for block in blocks:
         kind = ProvisionKind.LIST_ITEM if block.is_list_item else ProvisionKind.SENTENCE
@@ -92,6 +93,19 @@ def segment_blocks(blocks: Iterable[Block], version: str, nlp,
     # Parse every provision on its own so that analysis sees exactly the text being compared.
     for prov, doc in zip(provisions, nlp.pipe([p.text for p in provisions], batch_size=64)):
         prov.doc = doc
+        if paper_mode:
+            words = re.findall(r"[A-Za-z]{2,}", prov.text)
+            section = " ".join(prov.section_path).lower()
+            is_reference = "references" in section or "bibliography" in section
+            is_caption = bool(re.match(r"^(figure|fig\.?|table|algorithm)\s+\d+\b", prov.text, re.I))
+            is_formula = bool(re.search(r"[∈∑√≤≥×÷]", prov.text) or
+                              ("=" in prov.text and len(words) < 12))
+            uncertain_footnote = bool(re.search(r"\s[1-9]\.$", prov.text))
+            numeric_fragment = bool(re.match(r"^\d+(?:\.\d+)?(?:%|[,;])", prov.text))
+            has_verb = any(t.pos_ in ("VERB", "AUX") for t in doc)
+            if (is_reference or is_caption or is_formula or uncertain_footnote or numeric_fragment or
+                    len(words) < 5 or not prov.text.endswith((".", "?", "!")) or not has_verb):
+                prov.kind = ProvisionKind.NON_PROSE
     return provisions
 
 
@@ -100,10 +114,14 @@ def load_document(source, version: str, nlp, cfg: dict, name: str | None = None,
     ing = cfg.get("ingest", {})
     lines: list[RawLine] = extract(source, filename=filename,
                                    header_footer_ratio=ing.get("header_footer_min_page_ratio", 0.5))
-    blocks = build_blocks(lines)
+    paper_mode = any(re.fullmatch(r"abstract(?:\s*[:—–]\s*.*)?", line.text.strip(), re.IGNORECASE)
+                     for line in lines[:40])
+    blocks = build_blocks(lines, paper_mode=paper_mode)
     provisions = segment_blocks(blocks, version, nlp,
                                 split_semi=ing.get("split_semicolons", True),
-                                min_chars=ing.get("min_provision_chars", 3))
+                                min_chars=ing.get("min_provision_chars", 3),
+                                paper_mode=paper_mode)
     raw = "\n".join(l.text for l in lines)
     return Document(name=name or filename or version, version=version, raw_text=raw,
-                    provisions=provisions)
+                    provisions=provisions, document_type="paper" if paper_mode else "general",
+                    ocr_pages=sorted({line.page for line in lines if line.ocr and line.page is not None}))

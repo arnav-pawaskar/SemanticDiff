@@ -9,7 +9,7 @@
     V1    ∅    E                                MEANING_PRESERVING   LOW
     V2    ∅    C                                MATERIAL (REVERSAL, NLI-only, flagged unexplained)
     V3    ∅    R == 0                           MEANING_PRESERVING   LOW   (only form/function words changed)
-    V4    ∅    not E, not C, S >= tau_s         MEANING_PRESERVING   LOW   (low confidence)
+    V4    ∅    not E, not C, S >= tau_s         mode-dependent (see below)
     V5    ∅    otherwise                        UNCLASSIFIED (UNEXPLAINED change)   MEDIUM
     V6    ≠∅   —                                MATERIAL             max severity of M
           (+ "extractors and NLI disagree" note when E also holds)
@@ -50,13 +50,16 @@ def decide(changes: list[AtomicChange], nli: Optional[NLIResult], sim_embed: Opt
         return Verdict.MATERIAL, "V2:nli-contradiction-unexplained", [extra], notes, con
     if residual_count < v.get("unexplained_min_tokens", 1):
         return Verdict.MEANING_PRESERVING, "V3:no-content-word-change", [], notes, 0.9
-    if sim_embed is not None and sim_embed >= v["preserve_similarity"]:
-        notes.append("Low-confidence: NLI neutral, but embeddings very similar and no rule fired.")
-        return Verdict.MEANING_PRESERVING, "V4:high-similarity-no-rule", [], notes, 0.6
     extra = AtomicChange(
         id="u1", category=C.UNEXPLAINED, subtype="LEXICAL",
         description="Wording changed in a way no rule explains and NLI does not confirm as equivalent",
         confidence=0.5, evidence={"unexplained_tokens": residual_desc, "entailment": ent})
+    if sim_embed is not None and sim_embed >= v["preserve_similarity"]:
+        if v.get("similarity_only_preserves", True):
+            notes.append("Low-confidence: NLI neutral, but embeddings very similar and no rule fired.")
+            return Verdict.MEANING_PRESERVING, "V4:high-similarity-no-rule", [], notes, 0.6
+        notes.append("High embedding similarity alone cannot establish equivalent meaning; review this edit.")
+        return Verdict.UNCLASSIFIED, "V4:similarity-only", [extra], notes, 0.5
     return Verdict.UNCLASSIFIED, "V5:unexplained-change", [extra], notes, 0.5
 
 

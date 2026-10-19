@@ -17,6 +17,7 @@ from typing import Optional
 
 from semanticdiff.lexicons import COMPARATORS
 from semanticdiff.models import Quantity
+from semanticdiff.analyze.citations import citation_token_indices
 
 # unit surface form (lowercase) -> (canonical unit, dimension, factor to base unit, approximate?)
 _TIME = {
@@ -182,8 +183,12 @@ def extract_quantities(doc) -> list[Quantity]:
     n = len(doc)
     i = 0
     date_tokens = {t.i for ent in doc.ents if ent.label_ in ("DATE", "TIME") for t in ent}
+    citation_tokens = citation_token_indices(doc)
     while i < n:
         tok = doc[i]
+        if i in citation_tokens:
+            i += 1
+            continue
         low = tok.lower_
         is_candidate = (tok.like_num or low in NUMBER_WORDS or low in FRACTIONS
                         or (low in IMPLICIT_ONE and _unit_at(doc, i + 1)[0] is not None))

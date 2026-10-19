@@ -11,6 +11,7 @@ from difflib import SequenceMatcher
 
 from semanticdiff.lexicons import STOP_EDIT_TOKENS
 from semanticdiff.models import Severity
+from semanticdiff.analyze.citations import citation_token_indices
 
 
 @dataclass
@@ -34,8 +35,9 @@ class LexicalDiff:
     def content_changed(self, doc1, doc2) -> tuple[set[int], set[int]]:
         """Changed token indices excluding punctuation and function words."""
         keep = lambda t: not t.is_punct and not t.is_space and t.lower_ not in STOP_EDIT_TOKENS
-        return ({i for i in self.changed_old if keep(doc1[i])},
-                {j for j in self.changed_new if keep(doc2[j])})
+        refs1, refs2 = citation_token_indices(doc1), citation_token_indices(doc2)
+        return ({i for i in self.changed_old if i not in refs1 and keep(doc1[i])},
+                {j for j in self.changed_new if j not in refs2 and keep(doc2[j])})
 
 
 def _key(tok) -> str:
