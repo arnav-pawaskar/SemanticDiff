@@ -78,9 +78,10 @@ def segment_blocks(blocks: Iterable[Block], version: str, nlp,
                    paper_mode: bool = False) -> list[Provision]:
     provisions: list[Provision] = []
     for block in blocks:
-        kind = ProvisionKind.LIST_ITEM if block.is_list_item else ProvisionKind.SENTENCE
-        pieces = split_sentences(block.text, nlp)
-        if split_semi:
+        kind = (ProvisionKind.NON_PROSE if block.image_content else
+                ProvisionKind.LIST_ITEM if block.is_list_item else ProvisionKind.SENTENCE)
+        pieces = [block.text] if block.image_content else split_sentences(block.text, nlp)
+        if split_semi and not block.image_content:
             pieces = [p for s in pieces for p in split_semicolons(s, nlp)]
         for piece in pieces:
             if len(piece) < min_chars:
@@ -89,7 +90,7 @@ def segment_blocks(blocks: Iterable[Block], version: str, nlp,
             provisions.append(Provision(
                 id=f"{version}-{idx:03d}", version=version, index=idx, text=piece, kind=kind,
                 section_path=list(block.section_path), section_title=block.section_title,
-                page=block.page))
+                page=block.page, image_content=block.image_content, bbox=block.bbox))
     # Parse every provision on its own so that analysis sees exactly the text being compared.
     for prov, doc in zip(provisions, nlp.pipe([p.text for p in provisions], batch_size=64)):
         prov.doc = doc

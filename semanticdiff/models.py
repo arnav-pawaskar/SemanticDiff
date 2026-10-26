@@ -96,6 +96,8 @@ class Provision:
     section_path: list[str] = field(default_factory=list)
     section_title: Optional[str] = None
     page: Optional[int] = None
+    image_content: bool = False
+    bbox: Optional[tuple[float, float, float, float]] = None
     doc: Any = field(default=None, repr=False, compare=False)  # spaCy Doc, never serialised
 
     @property
@@ -254,6 +256,8 @@ class PairAnalysis:
     v2_section: str = ""
     v1_page: Optional[int] = None
     v2_page: Optional[int] = None
+    v1_bbox: Optional[tuple[float, float, float, float]] = None
+    v2_bbox: Optional[tuple[float, float, float, float]] = None
     v1_kind: Optional[ProvisionKind] = None
     v2_kind: Optional[ProvisionKind] = None
     textual_change: float = 0.0

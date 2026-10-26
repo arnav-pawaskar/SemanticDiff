@@ -73,8 +73,14 @@ local cache, plus [v1](https://arxiv.org/abs/1810.04805v1) and
 Paper ingestion detects an early **Abstract**, skips author/affiliation front matter, reads
 two-column pages down each column, ignores rotated page stamps, and shows PDF page numbers
 on comparison cards. Bracketed numeric citations are kept in the visible text diff but are
-not treated as measurements; the report notes when those references change. Image-only pages
-are OCRed locally and the report records which pages used OCR.
+not treated as measurements; the report notes when those references change. Displayed raster
+images, including inline images and scanned body regions on pages with native text, are OCRed
+locally. The report records which pages used OCR.
+The **Revision brief** prioritizes evidence-linked findings. Use **Source** on a brief item or
+**View source pages** on a comparison card to see the marked regions in both PDFs. The **Review**
+tab lets a reader confirm, correct, or dismiss findings and download a report that keeps the
+original model result beside each human decision. Upload that report in the Review tab to restore
+the decisions for the same document pair.
 The real-paper checks verify the *Attention* abstract's **41.0 → 41.2 BLEU** and
 **3.5 → 4.5 days** changes, the *BERT* abstract's **80.4% → 80.5%** change,
 and several passages moved into BERT's appendix. Paper mode keeps tables,
@@ -82,7 +88,8 @@ equations, captions, references, incomplete sentences and ambiguous footnote mar
 the report with a **Manual review** label. Added and removed paper passages are also
 review items because PDF extraction can split a sentence differently across versions. Adjacent
 sentence fragments with strong text coverage are rejoined before comparison.
-The system does not certify their semantic meaning.
+Recognized text inside raster figures is grouped into a review item. The system does not
+certify its semantic meaning or interpret visual chart data.
 
 ## Architecture
 
@@ -139,6 +146,7 @@ Key design decisions (see `docs/PLAN.md` for the full review):
 .venv/Scripts/python.exe -m eval.calibrate            # tune verdict thresholds on dev
 .venv/Scripts/python.exe -m eval.run_align_eval       # Task C: alignment (+ tunes align threshold on dev)
 .venv/Scripts/python.exe -m eval.run_eval             # Tasks A & B, ablations, figures → results/
+.venv/Scripts/python.exe -m eval.run_arxivedits_eval  # independent sentence-alignment scorecard → results/
 ```
 
 * **Task A** — did the meaning change? Lexical edit ratio, TF-IDF, SBERT cosine, SBERT + bidirectional
@@ -148,6 +156,17 @@ Key design decisions (see `docs/PLAN.md` for the full review):
 * **Task B** — what changed? Multi-label over 8 categories vs a keyword-diff baseline (no parsing, no
   normalisation); per-category P/R/F1, macro-F1, exact match, confusion matrix.
 * **Task C** — alignment: positional and `difflib` baselines vs the SemanticDiff aligner (link and move F1).
+
+The arXivEdits scorecard uses the [authors' test split](https://github.com/chaojiang06/arXivEdits)
+of clean, LaTeX-derived paper sentences. It downloads the pinned test file to the ignored local cache,
+excludes headings and the dataset's skipped sentences, and compares individual alignment links with
+positional and `difflib` baselines. All-link and edited-link precision, recall and F1 are reported
+separately because unchanged sentences dominate the gold links. The existing threshold is fixed;
+no test labels are used for tuning.
+Results appear in the app's **Benchmark** tab and `results/arxivedits_scorecard.json`. This checks
+sentence alignment, not PDF extraction, revision intent, or semantic verdict accuracy. The corpus
+combines automatically identified easy links with human annotation for ambiguous cases, so the
+scorecard is not a wholly human-labeled measure.
 
 Labelling conventions: `data/eval/LABELING.md`. **Important caveat:** the synthetic benchmark is
 generated with rules written by the same author as the extractors, so its numbers are an upper bound.
@@ -170,8 +189,12 @@ docs/PLAN.md    design review, frozen architecture, phased plan
 
 ## Limitations
 
-Scanned PDF pages are OCRed, but OCR errors can affect alignment and extracted numbers. Tables,
-equations and figure content are retained as text for manual review, but not structurally interpreted.
+Displayed raster regions are OCRed, but OCR errors can affect alignment and extracted numbers.
+Small images may be skipped, and visual chart content or vector drawings are not interpreted.
+Extracted table cells, equations, captions and recognized figure labels remain text for manual review.
+Source previews mark a matching phrase when possible and otherwise use the extracted paragraph
+or image region; these boxes can be broader than a single sentence. Review decisions are kept in
+the browser session until exported and restored from the reviewed JSON report.
 Paper front matter before **Abstract** is excluded from comparison.
 The NLI and rule models were developed for short normative prose, so scientific claims without
 clear numeric or lexical cues can remain UNCLASSIFIED. PDF reading order is heuristic and should be

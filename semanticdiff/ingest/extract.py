@@ -5,7 +5,8 @@ PDF handling (PyMuPDF):
   * recurring text is removed only in the top/bottom page margins,
   * words hyphenated across a line break are re-joined,
   * wrapped lines inside a PDF block are merged into one logical line.
-Image-only pages are OCRed locally with RapidOCR; source page numbers survive.
+Displayed image regions, including inline images, are OCRed locally with
+RapidOCR and merged with native text using page coordinates.
 """
 from __future__ import annotations
 
@@ -28,6 +29,8 @@ class RawLine:
     block: int = 0            # lines sharing a block id belong to the same paragraph
     blank_before: bool = False
     ocr: bool = False
+    image_content: bool = False
+    bbox: tuple[float, float, float, float] | None = None
 
 
 @dataclass
@@ -37,6 +40,8 @@ class _PdfBlock:
     y0: float
     x1: float
     y1: float
+    ocr: bool = False
+    image_content: bool = False
 
 
 def _split_pdf_block(block: dict, width: float) -> list[_PdfBlock]:
@@ -127,24 +132,40 @@ def _ocr_engine():
     return RapidOCR()
 
 
-def _ocr_page(page) -> list[_PdfBlock]:
-    """OCR a page image, preserving the text boxes for column ordering."""
-    import fitz
+def _ocr_page(page, clip=None, native_lines: list[_PdfBlock] | None = None,
+              image_content: bool = False) -> list[_PdfBlock]:
+    """OCR a displayed image region in page coordinates, omitting native text."""
+    import pymupdf as fitz
 
     scale = 2.5  # 180 dpi; readable body text without an excessive bitmap
-    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip, alpha=False)
     result = _ocr_engine()(pix.tobytes("png"))
     lines: list[_PdfBlock] = []
     for text, box, confidence in zip(
             result.txts if result.txts is not None else (),
             result.boxes if result.boxes is not None else (),
             result.scores if result.scores is not None else ()):
-        if confidence < 0.45 or not text.strip():
+        if (confidence < 0.45 or "�" in text or
+                sum(ch.isalnum() for ch in text) < 2):
             continue
-        xs = [float(point[0]) / scale for point in box]
-        ys = [float(point[1]) / scale for point in box]
-        lines.append(_PdfBlock([_normalize_chars(text.strip())], min(xs), min(ys), max(xs), max(ys)))
+        xs = [(pix.x + float(point[0])) / scale for point in box]
+        ys = [(pix.y + float(point[1])) / scale for point in box]
+        candidate = _PdfBlock([_normalize_chars(text.strip())], min(xs), min(ys),
+                              max(xs), max(ys), ocr=True, image_content=image_content)
+        area = max(1.0, (candidate.x1 - candidate.x0) * (candidate.y1 - candidate.y0))
+        if any(max(0.0, min(candidate.x1, native.x1) - max(candidate.x0, native.x0)) *
+               max(0.0, min(candidate.y1, native.y1) - max(candidate.y0, native.y0))
+               >= area * 0.45 for native in native_lines or ()):
+            continue
+        lines.append(candidate)
     ordered = _reading_order(lines, page.rect.width)
+    if image_content:
+        if not ordered:
+            return []
+        return [_PdfBlock([line.lines[0] for line in ordered],
+                          min(line.x0 for line in ordered), min(line.y0 for line in ordered),
+                          max(line.x1 for line in ordered), max(line.y1 for line in ordered),
+                          ocr=True, image_content=True)]
     grouped: list[_PdfBlock] = []
     last_line: _PdfBlock | None = None
     for line in ordered:
@@ -197,23 +218,37 @@ _LINE_START_MARKER = re.compile(
 
 
 def extract_pdf(data: bytes, header_footer_ratio: float = 0.5) -> list[RawLine]:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz
 
     doc = fitz.open(stream=data, filetype="pdf")
-    pages: list[tuple[float, list[_PdfBlock], bool]] = []
+    pages: list[tuple[float, list[_PdfBlock]]] = []
     for page in doc:
         blocks: list[_PdfBlock] = []
-        for b in page.get_text("dict", sort=False)["blocks"]:
-            if b["type"] != 0:                # skip image blocks
+        native_lines: list[_PdfBlock] = []
+        text_flags = fitz.TEXTFLAGS_DICT & ~fitz.TEXT_PRESERVE_IMAGES
+        for b in page.get_text("dict", flags=text_flags, sort=False)["blocks"]:
+            if b["type"] != 0:
                 continue
             blocks.extend(_split_pdf_block(b, page.rect.width))
-        readable = sum(ch.isalpha() for block in blocks for line in block.lines for ch in line)
-        used_ocr = readable < 25 and bool(page.get_images(full=True))
-        if used_ocr:
-            blocks = _ocr_page(page)
-        else:
-            blocks = _reading_order(blocks, page.rect.width)
-        pages.append((page.rect.height, blocks, used_ocr))
+            for line in b.get("lines", []):
+                text = "".join(span.get("text", "") for span in line.get("spans", [])).strip()
+                if text:
+                    native_lines.append(_PdfBlock([text], *line["bbox"]))
+        image_regions = []
+        for info in page.get_image_info():  # includes displayed inline images
+            region = fitz.Rect(info["bbox"]) & page.rect
+            if (region.width >= 60 and region.height >= 30 and
+                    region.get_area() >= page.rect.get_area() * 0.005):
+                image_regions.append(region)
+        selected = []
+        for region in sorted(image_regions, key=lambda r: r.get_area(), reverse=True):
+            if not any((region & prior).get_area() >= region.get_area() * 0.9
+                       for prior in selected):
+                selected.append(region)
+        for region in selected:
+            blocks.extend(_ocr_page(page, clip=region, native_lines=native_lines,
+                                    image_content=region.get_area() < page.rect.get_area() * 0.65))
+        pages.append((page.rect.height, _reading_order(blocks, page.rect.width)))
     doc.close()
 
     # Running headers/footers: lines (digits masked) that recur on many pages.
@@ -221,7 +256,7 @@ def extract_pdf(data: bytes, header_footer_ratio: float = 0.5) -> list[RawLine]:
     recurring: set[str] = set()
     if n_pages >= 3:
         counts = Counter()
-        for height, blocks, _ in pages:
+        for height, blocks in pages:
             seen = {_DIGITS_RE.sub("#", ln.strip().lower()) for blk in blocks
                     if blk.y0 < height * 0.12 or blk.y1 > height * 0.88
                     for ln in blk.lines}
@@ -230,7 +265,7 @@ def extract_pdf(data: bytes, header_footer_ratio: float = 0.5) -> list[RawLine]:
 
     out: list[RawLine] = []
     block_id = 0
-    for page_no, (height, blocks, used_ocr) in enumerate(pages, start=1):
+    for page_no, (height, blocks) in enumerate(pages, start=1):
         for blk in blocks:
             margin = blk.y0 < height * 0.12 or blk.y1 > height * 0.88
             kept = [ln for ln in blk.lines
@@ -243,11 +278,15 @@ def extract_pdf(data: bytes, header_footer_ratio: float = 0.5) -> list[RawLine]:
             group: list[str] = []
             for ln in kept:
                 if group and _LINE_START_MARKER.match(ln):
-                    out.append(RawLine(_join_wrapped(group), page_no, block_id, True, used_ocr))
+                    out.append(RawLine(_join_wrapped(group), page_no, block_id, True,
+                                       blk.ocr, blk.image_content,
+                                       (blk.x0, blk.y0, blk.x1, blk.y1)))
                     group = []
                 group.append(ln)
             if group:
-                out.append(RawLine(_join_wrapped(group), page_no, block_id, True, used_ocr))
+                out.append(RawLine(_join_wrapped(group), page_no, block_id, True,
+                                   blk.ocr, blk.image_content,
+                                   (blk.x0, blk.y0, blk.x1, blk.y1)))
             block_id += 1
     if not out:
         raise ValueError("No text could be extracted from this PDF, including OCR of image-only pages.")

@@ -161,12 +161,19 @@ class SemanticDiff:
                 return lookup[primary]
             parts = sorted((lookup[ident] for ident in ids), key=lambda p: p.index)
             merged_text = " ".join(p.text for p in parts)
+            boxes = [p.bbox for p in parts]
+            merged_bbox = (tuple((min(box[i] for box in boxes) if i < 2 else
+                                  max(box[i] for box in boxes)) for i in range(4))
+                           if all(box is not None and p.page == parts[0].page
+                                  for p, box in zip(parts, boxes)) else None)
             return Provision(id=primary, version=parts[0].version, index=parts[0].index,
                              text=merged_text,
-                             kind=ProvisionKind.SENTENCE if any(p.kind == ProvisionKind.SENTENCE for p in parts)
-                             else ProvisionKind.NON_PROSE,
+                             kind=ProvisionKind.NON_PROSE if any(p.kind == ProvisionKind.NON_PROSE for p in parts)
+                             else ProvisionKind.SENTENCE,
                              section_path=parts[0].section_path, section_title=parts[0].section_title,
-                             page=parts[0].page, doc=self.nlp(merged_text))
+                             page=parts[0].page, image_content=any(p.image_content for p in parts),
+                             bbox=merged_bbox,
+                             doc=self.nlp(merged_text))
         frames: dict[str, ProvisionFrame] = {}
         work = []
         pairs: list[PairAnalysis] = []
@@ -176,6 +183,7 @@ class SemanticDiff:
             pa = PairAnalysis(pair=ap, v1_text=p1.text if p1 else None, v2_text=p2.text if p2 else None,
                               v1_section=p1.section_label if p1 else "", v2_section=p2.section_label if p2 else "",
                               v1_page=p1.page if p1 else None, v2_page=p2.page if p2 else None,
+                              v1_bbox=p1.bbox if p1 else None, v2_bbox=p2.bbox if p2 else None,
                               v1_kind=p1.kind if p1 else None, v2_kind=p2.kind if p2 else None)
             pairs.append(pa)
             f1 = f2 = fd = None
@@ -193,7 +201,9 @@ class SemanticDiff:
                 pa.verdict = Verdict.IDENTICAL if ap.status == PairStatus.UNCHANGED else Verdict.UNCLASSIFIED
                 pa.verdict_rule = "paper:non-prose"
                 if ap.status != PairStatus.UNCHANGED:
-                    pa.notes.append("Table, equation, caption, reference, incomplete sentence, or ambiguous footnote: compare the source pages manually.")
+                    pa.notes.append("Image text, table, equation, caption, reference, incomplete sentence, or ambiguous footnote: compare the source pages manually.")
+                    if (p1 and p1.image_content) or (p2 and p2.image_content):
+                        pa.notes.append("Text was OCRed from a displayed image; visual chart meaning is not interpreted.")
             elif ap.status == PairStatus.MODIFIED:
                 f1, f2, fd = self._analyze_modified(p1.doc, p2.doc, pa)
             else:

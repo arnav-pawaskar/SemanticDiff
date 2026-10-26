@@ -34,6 +34,8 @@ class Block:
     page: Optional[int] = None
     is_list_item: bool = False
     list_label: Optional[str] = None
+    image_content: bool = False
+    bbox: tuple[float, float, float, float] | None = None
 
 
 def _looks_like_title(text: str) -> bool:
@@ -97,8 +99,10 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
             m = _ABSTRACT_LINE.fullmatch(lines[0].text.strip())
             if m and m.group("body"):
                 first = lines[0]
-                lines = [RawLine("Abstract", first.page, first.block, first.blank_before),
-                         RawLine(m.group("body"), first.page, first.block + 1, True), *lines[1:]]
+                lines = [RawLine("Abstract", first.page, first.block, first.blank_before,
+                                 first.ocr, first.image_content, first.bbox),
+                         RawLine(m.group("body"), first.page, first.block + 1, True,
+                                 first.ocr, first.image_content, first.bbox), *lines[1:]]
         # MuPDF sometimes separates a section number from its title.
         joined: list[RawLine] = []
         i = 0
@@ -107,7 +111,8 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
             if (i + 1 < len(lines) and re.fullmatch(r"\d{1,2}(?:\.\d{1,2})*", line.text.strip())
                     and lines[i + 1].page == line.page and _paper_heading(lines[i + 1].text)):
                 joined.append(RawLine(f"{line.text.strip()} {lines[i + 1].text.strip()}",
-                                      line.page, line.block, line.blank_before))
+                                      line.page, line.block, line.blank_before, line.ocr,
+                                      line.image_content, line.bbox))
                 i += 2
             else:
                 joined.append(line)
@@ -124,15 +129,21 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
             blocks.append(current)
         current = None
 
-    def start(text: str, page, is_list=False, label=None) -> None:
+    def start(text: str, page, is_list=False, label=None, image_content=False, bbox=None) -> None:
         nonlocal current
         flush()
         current = Block(text=text, section_path=stack.labels, section_title=stack.title,
-                        page=page, is_list_item=is_list, list_label=label)
+                        page=page, is_list_item=is_list, list_label=label,
+                        image_content=image_content, bbox=bbox)
 
     for line in lines:
         text = line.text.strip()
         if not text:
+            continue
+
+        if line.image_content:
+            start(text, line.page, image_content=True, bbox=line.bbox)
+            current_block_id = line.block
             continue
 
         m = _MARKDOWN_HEADING.match(text)
@@ -149,7 +160,7 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
             rest = m["rest"].strip()
             if rest and _is_body(rest):
                 stack.push(level, label, None)
-                start(rest, line.page)
+                start(rest, line.page, bbox=line.bbox)
             else:
                 flush()
                 stack.push(level, label, rest or None)
@@ -167,7 +178,7 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
             level = num.count(".") + 1
             if _is_body(rest):
                 stack.push(level, num, stack.title if level > 1 else None)
-                start(rest, line.page)
+                start(rest, line.page, bbox=line.bbox)
             else:
                 flush()
                 stack.push(level, num, rest)
@@ -176,7 +187,7 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
 
         m = _LIST_ITEM.match(text)
         if m:
-            start(m["rest"].strip(), line.page, True, m["label"])
+            start(m["rest"].strip(), line.page, True, m["label"], bbox=line.bbox)
             current_block_id = line.block
             continue
 
@@ -199,8 +210,16 @@ def build_blocks(lines: list[RawLine], paper_mode: bool = False) -> list[Block]:
                   and not current.text.rstrip().endswith(_TERMINAL)
                   and not current.is_list_item))):
             current.text = f"{current.text} {text}"
+            if current.page != line.page:
+                current.bbox = None
+            elif current.bbox and line.bbox:
+                a, b = current.bbox, line.bbox
+                current.bbox = (min(a[0], b[0]), min(a[1], b[1]),
+                                max(a[2], b[2]), max(a[3], b[3]))
+            else:
+                current.bbox = None
         else:
-            start(text, line.page)
+            start(text, line.page, bbox=line.bbox)
         current_block_id = line.block
 
     flush()

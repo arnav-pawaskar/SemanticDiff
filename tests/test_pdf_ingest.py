@@ -4,6 +4,9 @@ import fitz
 import pytest
 
 from semanticdiff.ingest.extract import extract_pdf
+from semanticdiff.ingest.structure import build_blocks
+from semanticdiff.ingest.segment import segment_blocks
+from semanticdiff.models import ProvisionKind
 
 
 def _pdf(pages):
@@ -92,3 +95,42 @@ def test_scanned_page_is_ocrd_and_mixed_pages_keep_provenance():
                and line.page == 1 and line.ocr for line in lines)
     assert any("control group improved by 10 percent" in line.text.lower()
                and line.page == 2 and not line.ocr for line in lines)
+    assert all(line.bbox is not None for line in lines)
+
+
+def test_hybrid_page_keeps_native_header_and_ocrd_body():
+    source = fitz.open()
+    page = source.new_page(width=600, height=800)
+    page.insert_text((50, 250), "The scanned body reports a 12 percent improvement.", fontsize=18)
+    image = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False).tobytes("png")
+    source.close()
+
+    def hybrid(page):
+        page.insert_image(page.rect, stream=image)
+        page.insert_text((50, 40), "A native journal header with enough letters to bypass the old threshold")
+
+    lines = extract_pdf(_pdf([hybrid]))
+    assert any("native journal header" in line.text.lower() and not line.ocr for line in lines)
+    assert any("scanned body reports a 12 percent improvement" in line.text.lower()
+               and line.ocr for line in lines)
+
+
+def test_raster_figure_labels_are_reviewable_without_duplicating_native_text(nlp):
+    source = fitz.open()
+    page = source.new_page(width=400, height=180)
+    page.insert_text((30, 100), "BLEU score 41.2", fontsize=22)
+    image = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False).tobytes("png")
+    source.close()
+
+    def paper(page):
+        page.insert_text((50, 40), "Abstract")
+        page.insert_text((50, 90), "The model improves translation quality.")
+        page.insert_text((50, 160), "Figure 1: Translation results")
+        page.insert_image(fitz.Rect(60, 210, 460, 390), stream=image)
+
+    lines = extract_pdf(_pdf([paper]))
+    assert any("BLEU score 41.2" in line.text and line.ocr and line.image_content for line in lines)
+    assert sum("The model improves translation quality" in line.text for line in lines) == 1
+    provisions = segment_blocks(build_blocks(lines, paper_mode=True), "v1", nlp, paper_mode=True)
+    figure_text = next(p for p in provisions if "BLEU score 41.2" in p.text)
+    assert figure_text.kind == ProvisionKind.NON_PROSE and figure_text.image_content

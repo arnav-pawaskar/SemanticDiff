@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import json
+import hashlib
 import os
 import random
 import sys
@@ -21,6 +23,9 @@ import streamlit as st
 
 from app.components import (CSS, brand_html, card_html, decision_html, empty_html, evidence_html, frames_html,
                             hero_html, overview_html, pipeline_html)
+from app.review_workflow import (document_fingerprint, import_decisions, pair_key, review_candidates,
+                                 reviewed_report_json, revision_brief)
+from app.source_preview import render_source_page
 from semanticdiff.impact.graph import to_dot
 from semanticdiff.models import ChangeCategory, PairStatus, Severity, Verdict
 from semanticdiff.report.serialize import report_to_json
@@ -61,6 +66,11 @@ def run_compare(b1: bytes, n1: str, b2: bytes, n2: str):
     return get_engine().compare(b1, b2, n1, n2, filename1=n1, filename2=n2)
 
 
+@st.cache_data(max_entries=16)
+def source_png(pdf: bytes, page: int, excerpt: str | None, bbox):
+    return render_source_page(pdf, page, excerpt, bbox)
+
+
 # ------------------------------------------------------------------------------ sidebar
 u1 = u2 = None
 with st.sidebar:
@@ -80,8 +90,8 @@ with st.sidebar:
             st.caption(f"Public arXiv PDFs: [v1](https://arxiv.org/abs/{arxiv_id}v1) · "
                        f"[v2](https://arxiv.org/abs/{arxiv_id}v2)")
     else:
-        u1 = st.file_uploader("Version 1", type=["pdf", "txt", "md"], help="Text-layer PDF, TXT or Markdown")
-        u2 = st.file_uploader("Version 2", type=["pdf", "txt", "md"], help="Text-layer PDF, TXT or Markdown")
+        u1 = st.file_uploader("Version 1", type=["pdf", "txt", "md"], help="PDF, including scanned pages, TXT or Markdown")
+        u2 = st.file_uploader("Version 2", type=["pdf", "txt", "md"], help="PDF, including scanned pages, TXT or Markdown")
         if u1 and u2:
             title = f"{u1.name} compared with {u2.name}"
             b1, n1, b2, n2 = u1.getvalue(), u1.name, u2.getvalue(), u2.name
@@ -99,6 +109,36 @@ except ValueError as exc:
     st.stop()
 s = report.summary
 impacts_by_id = {i.id: i for i in report.impacts}
+fingerprint = document_fingerprint(b1, b2)
+if "reviews_by_document" not in st.session_state:
+    st.session_state.reviews_by_document = {}
+doc_reviews = st.session_state.reviews_by_document.setdefault(fingerprint, {})
+
+
+@st.dialog("Source evidence", width="large")
+def show_source(pair_index: int) -> None:
+    pair = report.pairs[pair_index]
+    st.caption(f"Finding {pair_index + 1} · {pair.v2_section or pair.v1_section or 'Document body'}")
+    left, right = st.columns(2, gap="medium")
+    for column, version, data, filename, page, bbox, excerpt in (
+        (left, "Version 1", b1, n1, pair.v1_page, pair.v1_bbox, pair.v1_text),
+        (right, "Version 2", b2, n2, pair.v2_page, pair.v2_bbox, pair.v2_text),
+    ):
+        with column:
+            st.markdown(f"**{version} · {filename}**")
+            if excerpt is None:
+                st.caption("No passage in this version.")
+            elif data[:4] == b"%PDF" and page:
+                full, focused, location = source_png(data, page, excerpt, bbox)
+                st.caption(f"PDF page {page} · {location}")
+                if focused:
+                    st.image(focused, width="stretch", alt=f"Highlighted source region on page {page}")
+                with st.expander("Show full page"):
+                    st.image(full, width="stretch", alt=f"Full PDF page {page} with source region marked")
+            else:
+                st.caption("Source page preview is available for PDFs; extracted text is shown below.")
+            if excerpt:
+                st.caption(excerpt[:550] + ("…" if len(excerpt) > 550 else ""))
 
 with st.sidebar:
     st.space("medium")
@@ -115,9 +155,17 @@ with st.sidebar:
 # ------------------------------------------------------------------------------ hero + overview
 st.markdown(hero_html(title, f"{n1}  →  {n2}", s, report.doc_similarity), unsafe_allow_html=True)
 st.markdown(overview_html(s), unsafe_allow_html=True)
+brief, highlights = revision_brief(report)
+with st.container(key="sdrow_brief"):
+    section("Revision brief", brief)
+    for item in highlights:
+        a, b = st.columns([7, 1], vertical_alignment="center")
+        a.markdown(f"**{item['section'] or 'Document body'}:** {item['detail']}")
+        if b.button("Source", key=f"brief_source_{item['pair_index']}"):
+            show_source(item["pair_index"])
 
-tab_diff, tab_quad, tab_graph, tab_lab, tab_about = st.tabs([
-    "Clause diff", "Text vs meaning", "Impact graph", "Sentence lab", "How it works"])
+tab_diff, tab_review, tab_quad, tab_graph, tab_lab, tab_benchmark, tab_about = st.tabs([
+    "Clause diff", "Review", "Text vs meaning", "Impact graph", "Sentence lab", "Benchmark", "How it works"])
 
 # ------------------------------------------------------------------------------ clause diff
 VIEWS = {
@@ -167,9 +215,77 @@ with tab_diff:
     for k, pa in rows:
         with st.container(key=f"sdrow_{k}"):
             st.markdown(card_html(pa, impacts_by_id), unsafe_allow_html=True)
+            if st.button("View source pages", key=f"source_pair_{k}", icon=":material/description:"):
+                show_source(k)
+            decision = doc_reviews.get(pair_key(pa))
+            if decision:
+                st.caption(f"Human review: {decision['decision']}" +
+                           (f" · {decision['corrected_verdict']}" if decision['corrected_verdict'] else ""))
             if pa.pair.status == PairStatus.MODIFIED:
                 with st.expander("Explain this result", icon=":material/manage_search:"):
                     st.markdown(frames_html(pa) + evidence_html(pa), unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------ review queue
+with tab_review:
+    st.space("small")
+    section("Human review", "Check uncertain findings first, confirm or correct the result, and export "
+                            "a report that preserves both the model output and your decision.")
+    candidates = review_candidates(report)
+    pending = [index for index in candidates if pair_key(report.pairs[index]) not in doc_reviews]
+    a, b = st.columns(2)
+    a.metric("Pending", len(pending))
+    b.metric("Reviewed", len(candidates) - len(pending))
+    queue_mode = st.segmented_control("Queue", ["Pending", "All findings"], default="Pending")
+    visible = pending if queue_mode == "Pending" else candidates
+    if visible:
+        selected = st.selectbox(
+            "Finding to review", visible,
+            format_func=lambda index: (f"#{index + 1} · "
+                                       f"{(report.pairs[index].v2_section or report.pairs[index].v1_section or 'Body')} · "
+                                       f"{(report.pairs[index].v2_text or report.pairs[index].v1_text or '')[:105]}"),
+            key=f"review_selection_{fingerprint}_{queue_mode}")
+        pair = report.pairs[selected]
+        st.markdown(card_html(pair, impacts_by_id), unsafe_allow_html=True)
+        if st.button("View source pages", key=f"review_source_{selected}", icon=":material/description:"):
+            show_source(selected)
+        key = pair_key(pair)
+        existing = doc_reviews.get(key, {})
+        choices = ["Confirmed", "Corrected", "Dismissed"]
+        verdicts = ["MATERIAL", "MEANING_PRESERVING", "UNCLASSIFIED"]
+        default_verdict = existing.get("corrected_verdict") or pair.verdict.value
+        if default_verdict not in verdicts:
+            default_verdict = "UNCLASSIFIED"
+        with st.form(f"review_form_{key}"):
+            decision = st.selectbox("Your decision", choices,
+                                    index=choices.index(existing.get("decision", "Confirmed")))
+            corrected = st.selectbox("Correct verdict (used when Corrected)", verdicts,
+                                     index=verdicts.index(default_verdict))
+            note = st.text_area("Reason or correction", value=existing.get("note", ""),
+                                placeholder="Explain what the source pages show")
+            if st.form_submit_button("Save review", type="primary"):
+                doc_reviews[key] = {"decision": decision,
+                                    "corrected_verdict": corrected if decision == "Corrected" else None,
+                                    "note": note.strip()[:2000]}
+                st.rerun()
+    else:
+        st.success("No findings remain in this queue.")
+    st.download_button("Download reviewed report",
+                       reviewed_report_json(report, fingerprint, doc_reviews),
+                       file_name="semanticdiff_reviewed_report.json", mime="application/json")
+    imported = st.file_uploader("Restore decisions from a reviewed report", type="json",
+                                key=f"review_import_{fingerprint}")
+    if imported:
+        content = imported.getvalue()
+        import_hash = hashlib.sha256(content).hexdigest()
+        if st.session_state.get(f"review_imported_{fingerprint}") != import_hash:
+            try:
+                restored = import_decisions(content, report, fingerprint)
+            except (ValueError, json.JSONDecodeError) as exc:
+                st.error(str(exc))
+            else:
+                doc_reviews.update(restored)
+                st.session_state[f"review_imported_{fingerprint}"] = import_hash
+                st.rerun()
 
 # ------------------------------------------------------------------------------ text vs meaning
 with tab_quad:
@@ -258,6 +374,43 @@ with tab_lab:
         with st.container(key="sdrow_lab"):
             st.markdown(card_html(pa, {}), unsafe_allow_html=True)
             st.markdown(frames_html(pa) + evidence_html(pa), unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------ benchmark
+with tab_benchmark:
+    st.space("small")
+    section("Independent paper alignment check",
+            "Sentence links measured against the authors' arXivEdits test split. This checks alignment "
+            "on clean paper text; PDF extraction and meaning verdicts are separate tasks.")
+    scorecard_path = ROOT / "results" / "arxivedits_scorecard.json"
+    if scorecard_path.exists():
+        scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
+        st.caption(f"{scorecard['paper_groups']} paper groups · {scorecard['revision_pairs']} adjacent revisions · "
+                   f"{scorecard['gold_links']:,} gold links ({scorecard['gold_edited_links']:,} edited) · "
+                   f"fixed alignment threshold "
+                   f"{scorecard['alignment']['threshold']:.2f}")
+        columns = st.columns(3)
+        for column, (name, result) in zip(columns, scorecard["systems"].items()):
+            column.metric(f"{name} edited-link F1", f"{scorecard['edited_systems'][name]['f1']:.1%}")
+        st.dataframe(pd.DataFrame([
+            {"System": name, "All-link F1": result["f1"],
+             "Edited-link precision": scorecard["edited_systems"][name]["precision"],
+             "Edited-link recall": scorecard["edited_systems"][name]["recall"],
+             "Edited-link F1": scorecard["edited_systems"][name]["f1"],
+             "Correct": result["tp"], "False links": result["fp"],
+             "Missed links": result["fn"]}
+            for name, result in scorecard["systems"].items()]),
+            hide_index=True, width="stretch")
+        with st.expander("Revision-level results"):
+            st.dataframe(pd.DataFrame([
+                {"Paper": row["paper_id"], "Versions": row["versions"],
+                 "Gold links": row["gold_links"], "Edited links": row["gold_edited_links"],
+                 "SemanticDiff edited F1": row["SemanticDiff_edited"]["f1"]}
+                for row in scorecard["per_revision"]]),
+                hide_index=True, width="stretch")
+        st.caption(scorecard["scope"])
+        st.link_button("Dataset and annotation details", scorecard["source_repo"])
+    else:
+        st.info("Run `.venv/Scripts/python.exe -m eval.run_arxivedits_eval` to create the scorecard.")
 
 # ------------------------------------------------------------------------------ how it works
 with tab_about:
