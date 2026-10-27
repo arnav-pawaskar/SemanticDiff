@@ -26,6 +26,7 @@ from app.components import (CSS, brand_html, card_html, decision_html, empty_htm
 from app.review_workflow import (document_fingerprint, import_decisions, pair_key, review_candidates,
                                  reviewed_report_json, revision_brief)
 from app.source_preview import render_source_page
+from scripts.download_paper_demo import PAPER_DEMOS
 from semanticdiff.impact.graph import to_dot
 from semanticdiff.models import ChangeCategory, PairStatus, Severity, Verdict
 from semanticdiff.report.serialize import report_to_json
@@ -37,14 +38,11 @@ DEMOS = {
     "Service level agreement": ("Cloud service level agreement, revised", "sla_v1.txt", "sla_v2.txt"),
 }
 PAPER_CACHE = ROOT / "results" / "cache" / "papers"
-if (PAPER_CACHE / "attention_v1.pdf").exists() and (PAPER_CACHE / "attention_v2.pdf").exists():
-    DEMOS["Research paper · Attention Is All You Need"] = (
-        "Attention Is All You Need, arXiv version 1 to version 2",
-        PAPER_CACHE / "attention_v1.pdf", PAPER_CACHE / "attention_v2.pdf")
-if (PAPER_CACHE / "bert_v1.pdf").exists() and (PAPER_CACHE / "bert_v2.pdf").exists():
-    DEMOS["Research paper · BERT"] = (
-        "BERT, arXiv version 1 to version 2",
-        PAPER_CACHE / "bert_v1.pdf", PAPER_CACHE / "bert_v2.pdf")
+PAPER_ARXIV_IDS = {}
+for _slug, (_label, _title, _arxiv_id) in PAPER_DEMOS.items():
+    if (PAPER_CACHE / f"{_slug}_v1.pdf").exists() and (PAPER_CACHE / f"{_slug}_v2.pdf").exists():
+        DEMOS[_label] = (_title, PAPER_CACHE / f"{_slug}_v1.pdf", PAPER_CACHE / f"{_slug}_v2.pdf")
+        PAPER_ARXIV_IDS[_label] = _arxiv_id
 INK, SIENNA, PEACH, SLATE, ASH, HAIRLINE = "#17191c", "#5d2a1a", "#fbe1d1", "#6b6f7a", "#979799", "#ececec"
 
 st.set_page_config(page_title="SemanticDiff", page_icon=":material/difference:", layout="wide")
@@ -85,8 +83,8 @@ with st.sidebar:
                   Path(f2) if isinstance(f2, Path) else DEMO / f2)
         b1, n1 = p1.read_bytes(), p1.name
         b2, n2 = p2.read_bytes(), p2.name
-        if demo.startswith("Research paper"):
-            arxiv_id = "1810.04805" if demo.endswith("BERT") else "1706.03762"
+        if demo in PAPER_ARXIV_IDS:
+            arxiv_id = PAPER_ARXIV_IDS[demo]
             st.caption(f"Public arXiv PDFs: [v1](https://arxiv.org/abs/{arxiv_id}v1) · "
                        f"[v2](https://arxiv.org/abs/{arxiv_id}v2)")
     else:
